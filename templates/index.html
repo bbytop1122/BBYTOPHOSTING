@@ -24,8 +24,13 @@
 
     <script>
         // Client-side state & router in vanilla JS
+        const nodeServerCode = NODESERVER_PY_PLACEHOLDER;
         let currentUser = JSON.parse(localStorage.getItem('cloud_vps_user') || 'null');
         let currentView = localStorage.getItem('cloud_vps_view') || (currentUser ? (currentUser.role === 'admin' ? 'admin_dashboard' : 'user_dashboard') : 'landing');
+        if ((currentView === 'admin_dashboard' || currentView === 'user_dashboard' || currentView === 'terminal') && !currentUser) {
+            currentView = 'landing';
+            localStorage.setItem('cloud_vps_view', 'landing');
+        }
         let selectedVpsId = localStorage.getItem('cloud_vps_terminal_id') || null;
 
         function navigate(view, vpsId = null) {
@@ -553,7 +558,7 @@
                                 </button>
                             </div>
                             <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-                                <pre class="bg-slate-950 p-6 rounded-2xl border border-slate-800 text-xs font-mono text-emerald-400 overflow-x-auto max-h-[500px] leading-relaxed">${document.getElementById('nodeserver-code-content') ? document.getElementById('nodeserver-code-content').value : ''}</pre>
+                                <pre class="bg-slate-950 p-6 rounded-2xl border border-slate-800 text-xs font-mono text-emerald-400 overflow-x-auto max-h-[500px] leading-relaxed">${nodeServerCode}</pre>
                             </div>
                         </div>
                     </div>
@@ -768,8 +773,7 @@
         }
 
         function downloadAgentScript() {
-            const code = document.getElementById('nodeserver-code-content').value;
-            const blob = new Blob([code], { type: 'text/plain' });
+            const blob = new Blob([nodeServerCode], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -780,6 +784,5 @@
         // Initial render
         render();
     </script>
-    <textarea id="nodeserver-code-content" class="hidden">NODESERVER_PY_PLACEHOLDER</textarea>
 </body>
 </html>

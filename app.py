@@ -232,7 +232,8 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
                 html_content = f.read()
         except Exception:
             html_content = "<html><body><h1>Template not found</h1></body></html>"
-        html = html_content.replace('NODESERVER_PY_PLACEHOLDER', NODESERVER_PY_CODE)
+        node_code_json = json.dumps(NODESERVER_PY_CODE)
+        html = html_content.replace('NODESERVER_PY_PLACEHOLDER', node_code_json)
         self.wfile.write(html.encode('utf-8'))
 
     def do_POST(self):
