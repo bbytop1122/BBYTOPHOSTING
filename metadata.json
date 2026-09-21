@@ -1,0 +1,6 @@
+{
+  "name": "Cloud VPS Manager",
+  "description": "Professional multi-node VPS management platform in Python with QEMU, Docker, OS templates, live node health, terminal access, and python node agent.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
