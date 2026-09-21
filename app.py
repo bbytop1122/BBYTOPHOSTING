@@ -12,7 +12,7 @@ import time
 import os
 import random
 
-PORT = 3000
+PORT = int(os.environ.get("PORT", 3000))
 
 # In-memory database stores
 users = [
@@ -226,15 +226,25 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.end_headers()
-        template_path = os.path.join(os.path.dirname(__file__), 'templates', 'index.html')
-        try:
-            with open(template_path, 'r', encoding='utf-8') as f:
-                html_content = f.read()
-        except Exception:
+        base_dir = os.path.dirname(os.path.abspath(__file__)) if __file__ else os.getcwd()
+        paths_to_try = [
+            os.path.join(base_dir, 'templates', 'index.html'),
+            os.path.join(base_dir, 'index.html'),
+            'templates/index.html',
+            'index.html'
+        ]
+        html_content = None
+        for p in paths_to_try:
+            if os.path.exists(p):
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        html_content = f.read()
+                    break
+                except Exception:
+                    pass
+        if not html_content:
             html_content = "<html><body><h1>Template not found</h1></body></html>"
-        node_code_json = json.dumps(NODESERVER_PY_CODE)
-        html = html_content.replace('NODESERVER_PY_PLACEHOLDER', node_code_json)
-        self.wfile.write(html.encode('utf-8'))
+        self.wfile.write(html_content.encode('utf-8'))
 
     def do_POST(self):
         content_length = int(self.headers.get('Content-Length', 0))

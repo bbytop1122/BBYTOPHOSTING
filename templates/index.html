@@ -24,22 +24,38 @@
 
     <script>
         // Client-side state & router in vanilla JS
-        const nodeServerCode = NODESERVER_PY_PLACEHOLDER;
-        let currentUser = JSON.parse(localStorage.getItem('cloud_vps_user') || 'null');
-        let currentView = localStorage.getItem('cloud_vps_view') || (currentUser ? (currentUser.role === 'admin' ? 'admin_dashboard' : 'user_dashboard') : 'landing');
+        let nodeServerCode = "";
+        fetch('/api/nodeserver-code').then(r => r.json()).then(res => {
+            if (res.success) nodeServerCode = res.code;
+        }).catch(() => {});
+        let currentUser = null;
+        try {
+            currentUser = JSON.parse(localStorage.getItem('cloud_vps_user') || 'null');
+        } catch (e) {}
+
+        let currentView = 'landing';
+        try {
+            currentView = localStorage.getItem('cloud_vps_view') || (currentUser ? (currentUser.role === 'admin' ? 'admin_dashboard' : 'user_dashboard') : 'landing');
+        } catch (e) {}
+
         if ((currentView === 'admin_dashboard' || currentView === 'user_dashboard' || currentView === 'terminal') && !currentUser) {
             currentView = 'landing';
-            localStorage.setItem('cloud_vps_view', 'landing');
+            try { localStorage.setItem('cloud_vps_view', 'landing'); } catch (e) {}
         }
-        let selectedVpsId = localStorage.getItem('cloud_vps_terminal_id') || null;
+        let selectedVpsId = null;
+        try {
+            selectedVpsId = localStorage.getItem('cloud_vps_terminal_id') || null;
+        } catch (e) {}
 
         function navigate(view, vpsId = null) {
             currentView = view;
-            localStorage.setItem('cloud_vps_view', view);
-            if (vpsId) {
-                selectedVpsId = vpsId;
-                localStorage.setItem('cloud_vps_terminal_id', vpsId);
-            }
+            try {
+                localStorage.setItem('cloud_vps_view', view);
+                if (vpsId) {
+                    selectedVpsId = vpsId;
+                    localStorage.setItem('cloud_vps_terminal_id', vpsId);
+                }
+            } catch (e) {}
             render();
         }
 
@@ -782,7 +798,15 @@
         }
 
         // Initial render
-        render();
+        try {
+            render();
+        } catch (err) {
+            console.error("Initialization error:", err);
+            const app = document.getElementById('app');
+            if (app) {
+                app.innerHTML = `<div class="p-8 text-center text-rose-400 font-mono">App Initialization Error: ${err.message}</div>`;
+            }
+        }
     </script>
 </body>
 </html>
