@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud VPS Manager - Professional Cloud Virtualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+</head>
+<body class="h-full text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+    <!-- Header -->
+    <header class="w-full border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-server text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-tight text-white">CloudVPS <span class="text-indigo-400 font-normal">Enterprise</span></h1>
+                    <p class="text-xs text-slate-400">Next-Gen KVM & Docker Virtualization</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button onclick="openAuthModal('login')" class="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition">Sign In</button>
+                <button onclick="openAuthModal('register')" class="px-4 py-2.5 text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-600/20 transition">Get Started Free</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <main class="flex-1 flex items-center justify-center px-6 py-16">
+        <div class="max-w-4xl mx-auto text-center">
+            <div class="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold mb-8">
+                <i class="fa-solid fa-bolt text-xs"></i>
+                <span>Deploy Instances in Under 30 Seconds</span>
+            </div>
+            <h2 class="text-4xl sm:text-6xl font-bold tracking-tight text-white mb-6 leading-tight">
+                High-Performance <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-sky-400 to-emerald-400">Cloud Infrastructure</span> at Scale
+            </h2>
+            <p class="text-lg text-slate-400 max-w-2xl mx-auto mb-10">
+                Manage virtual machines, Docker nodes, secure SSH terminal consoles, and real-time network telemetry with enterprise-grade reliability.
+            </p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button onclick="openAuthModal('register')" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl shadow-xl shadow-indigo-600/30 transition text-base">
+                    Deploy Your First Server <i class="fa-solid fa-arrow-right ml-2"></i>
+                </button>
+                <button onclick="openAuthModal('login')" class="w-full sm:w-auto px-8 py-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-medium rounded-xl transition text-base">
+                    Access Control Panel
+                </button>
+            </div>
+
+            <!-- Features Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20 text-left">
+                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <h3 class="font-semibold text-white mb-1">Instant Provisioning</h3>
+                    <p class="text-sm text-slate-400">Automated OS deployment supporting Ubuntu, Debian, Alpine & Docker containers.</p>
+                </div>
+                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+                    <div class="w-10 h-10 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-terminal"></i>
+                    </div>
+                    <h3 class="font-semibold text-white mb-1">Web Terminal Console</h3>
+                    <p class="text-sm text-slate-400">Secure in-browser SSH shell access with real-time command execution and logs.</p>
+                </div>
+                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-chart-line"></i>
+                    </div>
+                    <h3 class="font-semibold text-white mb-1">Live Telemetry</h3>
+                    <p class="text-sm text-slate-400">Real-time CPU, RAM, and Disk throughput monitoring with multi-region cluster nodes.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl p-8 shadow-2xl relative">
+            <button onclick="closeAuthModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <div id="modalTitle" class="text-xl font-bold text-white mb-2">Sign In to CloudVPS</div>
+            <p id="modalSub" class="text-sm text-slate-400 mb-6">Enter your credentials to access your virtualization dashboard.</p>
+            
+            <form id="authForm" onsubmit="handleAuth(event)" class="space-y-4">
+                <div id="nameFieldContainer" class="hidden">
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Full Name</label>
+                    <input type="text" id="authName" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Alex Developer">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Email Address</label>
+                    <input type="email" id="authEmail" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="user@cloudvps.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Password</label>
+                    <input type="password" id="authPassword" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="••••••••">
+                </div>
+                <div id="authError" class="text-xs text-rose-400 hidden"></div>
+                <button type="submit" id="authSubmitBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition shadow-lg shadow-indigo-600/20">Sign In</button>
+            </form>
+
+            <div class="mt-6 pt-6 border-t border-slate-800 text-center text-xs text-slate-400">
+                <span id="authToggleText">Don't have an account?</span>
+                <button onclick="toggleAuthMode()" id="authToggleBtn" class="text-indigo-400 font-semibold ml-1 hover:underline">Sign up</button>
+            </div>
+            <div class="mt-4 p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl text-xs text-slate-400 flex items-center justify-between">
+                <span>Demo Admin: admin@cloudvps.com</span>
+                <button onclick="fillDemo('admin')" class="text-indigo-400 font-medium hover:underline">Fill</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="w-full border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
+        &copy; 2026 CloudVPS Enterprise. All rights reserved. Zero errors guaranteed.
+    </footer>
+
+    <script>
+        let isRegisterMode = false;
+
+        function openAuthModal(mode) {
+            isRegisterMode = (mode === 'register');
+            document.getElementById('authModal').classList.remove('hidden');
+            updateModalUI();
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.add('hidden');
+            document.getElementById('authError').classList.add('hidden');
+        }
+
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            updateModalUI();
+        }
+
+        function updateModalUI() {
+            const nameContainer = document.getElementById('nameFieldContainer');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalSub = document.getElementById('modalSub');
+            const submitBtn = document.getElementById('authSubmitBtn');
+            const toggleText = document.getElementById('authToggleText');
+            const toggleBtn = document.getElementById('authToggleBtn');
+
+            if (isRegisterMode) {
+                nameContainer.classList.remove('hidden');
+                modalTitle.innerText = "Create CloudVPS Account";
+                modalSub.innerText = "Register to start deploying cloud instances instantly.";
+                submitBtn.innerText = "Create Account";
+                toggleText.innerText = "Already have an account?";
+                toggleBtn.innerText = "Sign in";
+                document.getElementById('authEmail').value = "";
+                document.getElementById('authPassword').value = "";
+            } else {
+                nameContainer.classList.add('hidden');
+                modalTitle.innerText = "Sign In to CloudVPS";
+                modalSub.innerText = "Enter your credentials to access your virtualization dashboard.";
+                submitBtn.innerText = "Sign In";
+                toggleText.innerText = "Don't have an account?";
+                toggleBtn.innerText = "Sign up";
+            }
+        }
+
+        function fillDemo(type) {
+            if (type === 'admin') {
+                document.getElementById('authEmail').value = "admin@cloudvps.com";
+                document.getElementById('authPassword').value = "admin123";
+            }
+        }
+
+        async function handleAuth(e) {
+            e.preventDefault();
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value.trim();
+            const name = document.getElementById('authName').value.trim();
+            const errDiv = document.getElementById('authError');
+            errDiv.classList.add('hidden');
+
+            const endpoint = isRegisterMode ? '/api/register' : '/api/login';
+            const payload = isRegisterMode ? { name, email, password } : { email, password };
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    try {
+                        localStorage.setItem('cloud_vps_user', JSON.stringify(data.user));
+                    } catch (err) {}
+                    if (data.user.role === 'admin') {
+                        window.location.href = '/admin';
+                    } else {
+                        window.location.href = '/dashboard';
+                    }
+                } else {
+                    errDiv.innerText = data.error || 'Authentication failed';
+                    errDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                errDiv.innerText = 'Network error. Please try again.';
+                errDiv.classList.remove('hidden');
+            }
+        }
+
+        // If already logged in, redirect
+        try {
+            const user = JSON.parse(localStorage.getItem('cloud_vps_user') || 'null');
+            if (user) {
+                if (user.role === 'admin') window.location.href = '/admin';
+                else window.location.href = '/dashboard';
+            }
+        } catch (e) {}
+    </script>
+</body>
+</html>

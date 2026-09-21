@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-Cloud VPS Manager - Professional Python & HTML VPS Virtualization Panel
-Runs on Python standard library http.server (Port 3000)
+CloudVPS Manager - Professional Multi-Page Python VPS Virtualization Panel
+Runs on Python standard library http.server (Port 3000 / Dynamic PORT)
 """
 
 import http.server
 import socketserver
 import json
 import urllib.parse
-import time
 import os
 import random
 
@@ -26,16 +25,12 @@ nodes = [
         "name": "US-East Hypervisor Node 01",
         "host": "192.168.1.100",
         "port": 5000,
-        "token": "cloud_token_123",
         "status": "online",
         "cpuUsage": 22.4,
         "ramTotal": 64,
         "ramUsed": 18.2,
         "diskTotal": 1000,
         "diskUsed": 240.5,
-        "uptime": 1420000,
-        "kvmSupported": True,
-        "dockerSupported": True,
         "os": "Ubuntu 22.04.4 LTS"
     },
     {
@@ -43,16 +38,12 @@ nodes = [
         "name": "Europe Frankfurt Node 02",
         "host": "10.0.42.15",
         "port": 5000,
-        "token": "cloud_token_456",
         "status": "online",
         "cpuUsage": 38.9,
         "ramTotal": 128,
         "ramUsed": 45.1,
         "diskTotal": 2000,
         "diskUsed": 780.2,
-        "uptime": 980000,
-        "kvmSupported": True,
-        "dockerSupported": True,
         "os": "Debian 12 (Bookworm)"
     }
 ]
@@ -66,20 +57,15 @@ vps_list = [
         "nodeName": "US-East Hypervisor Node 01",
         "userId": "u_2",
         "userName": "Alex Developer",
-        "vpsType": "qemu",
         "os": "ubuntu-22.04",
         "cpuCores": 4,
         "ramGb": 8,
         "diskGb": 100,
         "status": "running",
         "ipAddress": "192.168.1.150",
-        "rootPass": "root#Cloud99!",
-        "kvmEnabled": True,
         "cpuUsage": 16.5,
         "ramUsage": 42.0,
-        "diskUsage": 30.2,
-        "uptimeSeconds": 523000,
-        "sshxUrl": "https://sshx.io/s/#cloud-prod-web99"
+        "diskUsage": 30.2
     },
     {
         "id": "vps_102",
@@ -89,323 +75,187 @@ vps_list = [
         "nodeName": "Europe Frankfurt Node 02",
         "userId": "u_2",
         "userName": "Alex Developer",
-        "vpsType": "docker",
         "os": "debian-12",
         "cpuCores": 2,
         "ramGb": 4,
         "diskGb": 50,
         "status": "running",
         "ipAddress": "10.0.42.88",
-        "rootPass": "root#Redis77!",
-        "kvmEnabled": False,
-        "cpuUsage": 9.1,
-        "ramUsage": 31.5,
-        "diskUsage": 18.4,
-        "uptimeSeconds": 184000,
-        "sshxUrl": "https://sshx.io/s/#cloud-cache-redis"
+        "cpuUsage": 8.1,
+        "ramUsage": 28.5,
+        "diskUsage": 18.4
     }
 ]
 
-NODESERVER_PY_CODE = '''#!/usr/bin/env python3
-\"\"\"
-Cloud VPS Manager Node Agent (nodeserver.py)
-Deploy this script on any remote Linux VPS node to connect it to your Cloud VPS Manager panel.
-Requirements: python3, flask, psutil
-Run: pip install flask psutil
-Usage: python3 nodeserver.py --port 5000 --token YOUR_SECURE_API_TOKEN
-\"\"\"
-
-import os
-import sys
-import time
-import argparse
-import subprocess
-import platform
-
-try:
-    from flask import Flask, request, jsonify
-    import psutil
-except ImportError:
-    print("Error: Required packages 'flask' and 'psutil' are missing.")
-    print("Please install them using: pip install flask psutil")
-    sys.exit(1)
-
-app = Flask(__name__)
-NODE_TOKEN = os.environ.get("NODE_TOKEN", "cloud_token_123")
-
-def verify_token(req):
-    auth = req.headers.get("Authorization", "")
-    token = req.args.get("token", "")
-    if auth.startswith("Bearer "):
-        token = auth.split(" ")[1]
-    return token == NODE_TOKEN
-
-@app.route("/health", methods=["GET"])
-def health():
-    if not verify_token(request):
-        return jsonify({"error": "Unauthorized"}), 401
-    
-    mem = psutil.virtual_memory()
-    disk = psutil.disk_usage('/')
-    return jsonify({
-        "status": "online",
-        "hostname": platform.node(),
-        "os": platform.platform(),
-        "cpu_usage_percent": psutil.cpu_percent(interval=0.3),
-        "cpu_cores": psutil.cpu_count(logical=True),
-        "ram_total_gb": round(mem.total / (1024**3), 2),
-        "ram_used_gb": round(mem.used / (1024**3), 2),
-        "disk_total_gb": round(disk.total / (1024**3), 2),
-        "disk_used_gb": round(disk.used / (1024**3), 2),
-        "uptime_seconds": int(time.time() - psutil.boot_time()),
-        "kvm_supported": os.path.exists("/dev/kvm"),
-        "docker_supported": True
-    })
-
-@app.route("/vps/create", methods=["POST"])
-def create_vps():
-    if not verify_token(request):
-        return jsonify({"error": "Unauthorized"}), 401
-    data = request.json or {}
-    return jsonify({"success": True, "message": "VPS successfully spawned on remote node agent."})
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=5000)
-    parser.add_argument("--token", type=str, default="cloud_token_123")
-    args = parser.parse_args()
-    NODE_TOKEN = args.token
-    print(f"Starting Cloud VPS Node Agent on port {args.port}...")
-    app.run(host="0.0.0.0", port=args.port)
-'''
-
-
-
 class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        parsed_path = urllib.parse.urlparse(self.path)
-        path = parsed_path.path
-        query = urllib.parse.parse_qs(parsed_path.query)
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path
+        query_params = urllib.parse.parse_qs(parsed_url.query)
 
-        if path == '/api/nodes':
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "nodes": nodes}).encode('utf-8'))
+        # Serve Separate HTML Pages
+        if path == "/" or path == "/index.html":
+            self.serve_html("landing.html")
+            return
+        elif path == "/dashboard":
+            self.serve_html("user_dashboard.html")
+            return
+        elif path == "/admin":
+            self.serve_html("admin_dashboard.html")
+            return
+        elif path == "/terminal":
+            self.serve_html("terminal.html")
             return
 
-        if path == '/api/vps':
-            user_id = query.get('userId', [None])[0]
-            role = query.get('role', [None])[0]
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            if role == 'admin' or not user_id:
-                self.wfile.write(json.dumps({"success": True, "vpsList": vps_list}).encode('utf-8'))
+        # API Endpoints
+        elif path == "/api/vps":
+            user_id = query_params.get("userId", [None])[0]
+            user_vps = [v for v in vps_list if v["userId"] == user_id] if user_id else vps_list
+            self.send_json({"success": True, "vpsList": user_vps})
+
+        elif path == "/api/vps/detail":
+            vps_id = query_params.get("id", [None])[0]
+            vps = next((v for v in vps_list if v["id"] == vps_id), None)
+            if vps:
+                self.send_json({"success": True, "vps": vps})
             else:
-                filtered = [v for v in vps_list if v['userId'] == user_id]
-                self.wfile.write(json.dumps({"success": True, "vpsList": filtered}).encode('utf-8'))
-            return
+                self.send_json({"success": False, "error": "VPS not found"}, 404)
 
-        if path == '/api/users':
-            safe_users = [{k: v for k, v in u.items() if k != 'password'} for u in users]
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "users": safe_users}).encode('utf-8'))
-            return
+        elif path == "/api/admin/stats":
+            self.send_json({
+                "success": True,
+                "nodes": nodes,
+                "users": users,
+                "vpsList": vps_list
+            })
 
-        if path == '/api/nodeserver-code':
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "code": NODESERVER_PY_CODE}).encode('utf-8'))
-            return
-
-        # Serve SPA HTML for all frontend routes
-        self.send_response(200)
-        self.send_header('Content-Type', 'text/html; charset=utf-8')
-        self.end_headers()
-        base_dir = os.path.dirname(os.path.abspath(__file__)) if __file__ else os.getcwd()
-        paths_to_try = [
-            os.path.join(base_dir, 'templates', 'index.html'),
-            os.path.join(base_dir, 'index.html'),
-            'templates/index.html',
-            'index.html'
-        ]
-        html_content = None
-        for p in paths_to_try:
-            if os.path.exists(p):
-                try:
-                    with open(p, 'r', encoding='utf-8') as f:
-                        html_content = f.read()
-                    break
-                except Exception:
-                    pass
-        if not html_content:
-            html_content = "<html><body><h1>Template not found</h1></body></html>"
-        self.wfile.write(html_content.encode('utf-8'))
+        else:
+            super().do_GET()
 
     def do_POST(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path
         content_length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(content_length)
-        data = {}
-        if body:
-            try:
-                data = json.loads(body.decode('utf-8'))
-            except Exception:
-                pass
+        body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+        try:
+            data = json.loads(body.decode('utf-8'))
+        except Exception:
+            data = {}
 
-        parsed_path = urllib.parse.urlparse(self.path)
-        path = parsed_path.path
-
-        if path == '/api/auth/login':
-            email = data.get('email')
-            password = data.get('password')
-            user = next((u for u in users if u['email'] == email and u['password'] == password), None)
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
+        if path == "/api/login":
+            email = data.get("email", "").strip()
+            password = data.get("password", "").strip()
+            user = next((u for u in users if u["email"] == email and u["password"] == password), None)
             if user:
-                safe_user = {k: v for k, v in user.items() if k != 'password'}
-                self.wfile.write(json.dumps({"success": True, "user": safe_user}).encode('utf-8'))
+                self.send_json({"success": True, "user": {"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]}})
             else:
-                self.wfile.write(json.dumps({"success": False, "error": "Invalid email or password"}).encode('utf-8'))
-            return
+                self.send_json({"success": False, "error": "Invalid email or password"}, 401)
 
-        if path == '/api/auth/register':
-            name = data.get('name')
-            email = data.get('email')
-            password = data.get('password')
-            if any(u['email'] == email for u in users):
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": "Email already registered"}).encode('utf-8'))
+        elif path == "/api/register":
+            name = data.get("name", "").strip()
+            email = data.get("email", "").strip()
+            password = data.get("password", "").strip()
+            if not email or not password or not name:
+                self.send_json({"success": False, "error": "All fields are required"}, 400)
                 return
-            new_user = {"id": f"u_{len(users)+1}", "name": name, "email": email, "role": "user", "password": password}
-            users.append(new_user)
-            safe_user = {k: v for k, v in new_user.items() if k != 'password'}
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "user": safe_user}).encode('utf-8'))
-            return
-
-        if path == '/api/nodes':
-            new_node = {
-                "id": f"node_{len(nodes)+1}",
-                "name": data.get('name', 'Remote Node'),
-                "host": data.get('host', '127.0.0.1'),
-                "port": int(data.get('port', 5000)),
-                "token": data.get('token', 'token'),
-                "status": "online",
-                "cpuUsage": random.randint(10, 40),
-                "ramTotal": 64,
-                "ramUsed": random.randint(10, 30),
-                "diskTotal": 1000,
-                "diskUsed": random.randint(200, 600),
-                "uptime": random.randint(100000, 900000),
-                "kvmSupported": True,
-                "dockerSupported": True,
-                "os": "Ubuntu 22.04 LTS"
+            if any(u["email"] == email for u in users):
+                self.send_json({"success": False, "error": "Email already registered"}, 400)
+                return
+            new_user = {
+                "id": f"u_{random.randint(100, 999)}",
+                "name": name,
+                "email": email,
+                "role": "user",
+                "password": password
             }
-            nodes.append(new_node)
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "node": new_node}).encode('utf-8'))
-            return
+            users.append(new_user)
+            self.send_json({"success": True, "user": {"id": new_user["id"], "name": new_user["name"], "email": new_user["email"], "role": new_user["role"]}})
 
-        if path.startswith('/api/nodes/') and path.endswith('/check'):
-            node_id = path.split('/')[3]
-            node = next((n for n in nodes if n['id'] == node_id), None)
-            if node:
-                node['status'] = 'online' if random.random() > 0.05 else 'offline'
-                node['cpuUsage'] = round(random.uniform(10, 50), 1)
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "node": node}).encode('utf-8'))
-            return
+        elif path == "/api/vps/create":
+            user_id = data.get("userId")
+            user_name = data.get("userName")
+            name = data.get("name", "New VPS")
+            os_type = data.get("os", "ubuntu-22.04")
+            node_id = data.get("nodeId", "node_1")
+            cpu_cores = int(data.get("cpuCores", 2))
+            ram_gb = int(data.get("ramGb", 4))
+            disk_gb = int(data.get("diskGb", 50))
 
-        if path == '/api/vps':
-            target_node = next((n for n in nodes if n['id'] == data.get('nodeId')), nodes[0])
-            target_user = next((u for u in users if u['id'] == data.get('userId')), users[1])
+            node = next((n for n in nodes if n["id"] == node_id), nodes[0])
+            new_id = f"vps_{random.randint(200, 999)}"
+            ip = f"192.168.{random.randint(1, 10)}.{random.randint(10, 200)}"
+
             new_vps = {
-                "id": f"vps_{random.randint(10000, 99999)}",
-                "name": data.get('hostname', 'VPS Instance'),
-                "hostname": data.get('hostname', 'vps-node'),
-                "nodeId": target_node['id'],
-                "nodeName": target_node['name'],
-                "userId": target_user['id'],
-                "userName": target_user['name'],
-                "vpsType": data.get('vpsType', 'qemu'),
-                "os": data.get('os', 'ubuntu-22.04'),
-                "cpuCores": int(data.get('cpuCores', 2)),
-                "ramGb": int(data.get('ramGb', 4)),
-                "diskGb": int(data.get('diskGb', 40)),
+                "id": new_id,
+                "name": name,
+                "hostname": name.lower().replace(" ", "-"),
+                "nodeId": node["id"],
+                "nodeName": node["name"],
+                "userId": user_id,
+                "userName": user_name,
+                "os": os_type,
+                "cpuCores": cpu_cores,
+                "ramGb": ram_gb,
+                "diskGb": disk_gb,
                 "status": "running",
-                "ipAddress": f"192.168.{random.randint(1,10)}.{random.randint(10,200)}",
-                "rootPass": data.get('rootPass', 'root12345'),
-                "kvmEnabled": bool(data.get('kvmEnabled', True)),
-                "cpuUsage": round(random.uniform(5, 25), 1),
-                "ramUsage": round(random.uniform(20, 60), 1),
-                "diskUsage": round(random.uniform(15, 45), 1),
-                "uptimeSeconds": random.randint(1000, 86400),
-                "sshxUrl": f"https://sshx.io/s/#cloud-{data.get('hostname','vps')}-{random.randint(100,999)}"
+                "ipAddress": ip,
+                "cpuUsage": round(random.uniform(5.0, 25.0), 1),
+                "ramUsage": round(random.uniform(20.0, 60.0), 1),
+                "diskUsage": round(random.uniform(10.0, 40.0), 1)
             }
             vps_list.append(new_vps)
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "vps": new_vps}).encode('utf-8'))
-            return
+            self.send_json({"success": True, "vps": new_vps})
 
-        if '/action' in path:
-            vps_id = path.split('/')[3]
-            action = data.get('action')
-            vps = next((v for v in vps_list if v['id'] == vps_id), None)
+        elif path == "/api/vps/action":
+            vps_id = data.get("vpsId")
+            action = data.get("action")
+            vps = next((v for v in vps_list if v["id"] == vps_id), None)
             if vps:
-                if action == 'start': vps['status'] = 'running'
-                elif action == 'stop': vps['status'] = 'stopped'
-                elif action == 'restart': vps['status'] = 'running'
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "vps": vps}).encode('utf-8'))
-            return
+                if action == "start":
+                    vps["status"] = "running"
+                elif action == "stop":
+                    vps["status"] = "stopped"
+                elif action == "restart":
+                    vps["status"] = "running"
+                self.send_json({"success": True, "vps": vps})
+            else:
+                self.send_json({"success": False, "error": "VPS not found"}, 404)
 
+        elif path == "/api/vps/delete":
+            vps_id = data.get("vpsId")
+            vps_list[:] = [v for v in vps_list if v["id"] != vps_id]
+            self.send_json({"success": True})
+
+        else:
+            self.send_json({"success": False, "error": "Not found"}, 404)
+
+    def serve_html(self, filename):
+        base_dir = os.path.dirname(os.path.abspath(__file__)) if __file__ else os.getcwd()
+        file_path = os.path.join(base_dir, "templates", filename)
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(content.encode("utf-8"))
+                return
+            except Exception:
+                pass
         self.send_response(404)
+        self.send_header("Content-Type", "text/plain")
         self.end_headers()
+        self.wfile.write(b"404 Not Found")
 
-    def do_DELETE(self):
-        parsed_path = urllib.parse.urlparse(self.path)
-        path = parsed_path.path
-        global nodes, vps_list
-
-        if path.startswith('/api/nodes/'):
-            node_id = path.split('/')[3]
-            nodes = [n for n in nodes if n['id'] != node_id]
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True}).encode('utf-8'))
-            return
-
-        if path.startswith('/api/vps/'):
-            vps_id = path.split('/')[3]
-            vps_list = [v for v in vps_list if v['id'] != vps_id]
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True}).encode('utf-8'))
-            return
-
-        self.send_response(404)
+    def send_json(self, data, status=200):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
+        self.wfile.write(json.dumps(data).encode("utf-8"))
 
-if __name__ == '__main__':
-    print(f"Starting Cloud VPS Manager Python Server on port {PORT}...")
-    with socketserver.TCPServer(("0.0.0.0", PORT), CloudVPSHandler) as httpd:
+if __name__ == "__main__":
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", PORT), CloudVPSHandler) as httpd:
+        print(f"CloudVPS Manager running on port {PORT}")
         httpd.serve_forever()

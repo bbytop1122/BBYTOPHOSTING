@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - CloudVPS Enterprise</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+</head>
+<body class="h-full text-slate-100 flex flex-col bg-slate-950 selection:bg-indigo-500 selection:text-white">
+    <!-- Navbar -->
+    <header class="w-full border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-shield-halved text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-tight text-white">CloudVPS <span class="text-rose-400 font-normal">Administrator</span></h1>
+                    <p id="adminSubtitle" class="text-xs text-slate-400">Cluster Control & Telemetry</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button onclick="logout()" class="px-4 py-2 text-sm text-slate-400 hover:text-rose-400 transition flex items-center space-x-2">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>Sign Out</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-8">
+        <!-- Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Cluster Nodes</div>
+                <div id="statNodes" class="text-3xl font-bold text-white">0</div>
+            </div>
+            <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Total Active Users</div>
+                <div id="statUsers" class="text-3xl font-bold text-indigo-400">0</div>
+            </div>
+            <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Global VPS Instances</div>
+                <div id="statVps" class="text-3xl font-bold text-emerald-400">0</div>
+            </div>
+            <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Cluster RAM Load</div>
+                <div id="statClusterRam" class="text-3xl font-bold text-sky-400">0%</div>
+            </div>
+        </div>
+
+        <!-- Hypervisor Nodes -->
+        <div class="mb-10">
+            <h2 class="text-xl font-bold text-white mb-6">Hypervisor Cluster Nodes</h2>
+            <div id="nodesContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Loaded dynamically -->
+            </div>
+        </div>
+
+        <!-- All Users & VPS -->
+        <div class="mb-6 flex items-center justify-between">
+            <h2 class="text-xl font-bold text-white">Registered Users & Instances</h2>
+            <button onclick="loadAdminData()" class="text-xs text-indigo-400 hover:underline flex items-center space-x-1">
+                <i class="fa-solid fa-rotate"></i>
+                <span>Refresh Cluster</span>
+            </button>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-900 text-slate-400 uppercase text-xs tracking-wider border-b border-slate-800">
+                        <tr>
+                            <th class="px-6 py-4">User</th>
+                            <th class="px-6 py-4">Email</th>
+                            <th class="px-6 py-4">Role</th>
+                            <th class="px-6 py-4">Assigned VPS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody" class="divide-y divide-slate-800/60">
+                        <tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">Loading users...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
+        &copy; 2026 CloudVPS Administrator Console. Secure Node Management.
+    </footer>
+
+    <script>
+        let currentUser = null;
+        try {
+            currentUser = JSON.parse(localStorage.getItem('cloud_vps_user') || 'null');
+        } catch (e) {}
+
+        if (!currentUser || currentUser.role !== 'admin') {
+            window.location.href = '/';
+        } else {
+            document.getElementById('adminSubtitle').innerText = `${currentUser.name} (${currentUser.email})`;
+            loadAdminData();
+        }
+
+        function logout() {
+            try { localStorage.removeItem('cloud_vps_user'); } catch (e) {}
+            window.location.href = '/';
+        }
+
+        async function loadAdminData() {
+            try {
+                const res = await fetch('/api/admin/stats');
+                const data = await res.json();
+                if (data.success) {
+                    renderAdmin(data);
+                }
+            } catch (err) {
+                console.error("Failed to load admin stats", err);
+            }
+        }
+
+        function renderAdmin(data) {
+            document.getElementById('statNodes').innerText = data.nodes.length;
+            document.getElementById('statUsers').innerText = data.users.length;
+            document.getElementById('statVps').innerText = data.vpsList.length;
+            document.getElementById('statClusterRam').innerText = '34.2%';
+
+            // Nodes
+            const nodesContainer = document.getElementById('nodesContainer');
+            nodesContainer.innerHTML = data.nodes.map(n => `
+                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <i class="fa-solid fa-circle text-[8px] mr-1.5"></i>${n.status.toUpperCase()}
+                        </span>
+                        <span class="text-xs font-mono text-slate-500">${n.id}</span>
+                    </div>
+                    <h3 class="font-bold text-white text-lg mb-1">${n.name}</h3>
+                    <p class="text-xs font-mono text-slate-400 mb-4">${n.host}:${n.port} &bull; ${n.os}</p>
+
+                    <div class="space-y-2 text-xs text-slate-400">
+                        <div class="flex justify-between">
+                            <span>CPU Utilization:</span>
+                            <span class="text-white font-medium">${n.cpuUsage}%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>RAM Allocated:</span>
+                            <span class="text-white font-medium">${n.ramUsed} GB / ${n.ramTotal} GB</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Storage SSD:</span>
+                            <span class="text-white font-medium">${n.diskUsed} GB / ${n.diskTotal} GB</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Users Table
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = data.users.map(u => {
+                const userVps = data.vpsList.filter(v => v.userId === u.id);
+                return `
+                    <tr class="hover:bg-slate-900/40 transition">
+                        <td class="px-6 py-4 font-medium text-white">${u.name}</td>
+                        <td class="px-6 py-4 text-slate-400 font-mono text-xs">${u.email}</td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs px-2.5 py-1 rounded-full font-semibold ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'}">
+                                ${u.role.toUpperCase()}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 font-mono text-xs text-slate-300">
+                            ${userVps.length > 0 ? userVps.map(v => `<span class="inline-block bg-slate-800 px-2 py-1 rounded mr-1 mb-1">${v.name} (${v.ipAddress})</span>`).join('') : '<span class="text-slate-500">None</span>'}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>
