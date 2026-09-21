@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - CloudVPS Enterprise</title>
+    <title>Admin Panel - NexusVPS Enterprise Node Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,21 +16,25 @@
 </head>
 <body class="h-full text-slate-100 flex flex-col bg-slate-950 selection:bg-indigo-500 selection:text-white">
     <!-- Navbar -->
-    <header class="w-full border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
+    <header class="w-full border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
-                    <i class="fa-solid fa-shield-halved text-lg"></i>
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-rose-500/30">
+                    <i class="fa-solid fa-shield-halved text-base"></i>
                 </div>
                 <div>
-                    <h1 class="font-bold text-lg tracking-tight text-white">CloudVPS <span class="text-rose-400 font-normal">Administrator</span></h1>
-                    <p id="adminSubtitle" class="text-xs text-slate-400">Cluster Control & Telemetry</p>
+                    <h1 class="font-bold text-lg tracking-tight text-white">NexusVPS <span class="text-rose-400 font-normal">Administrator</span></h1>
+                    <p id="adminSubtitle" class="text-xs text-slate-400">Node Management & Cluster Telemetry</p>
                 </div>
             </div>
             <div class="flex items-center space-x-4">
-                <button onclick="logout()" class="px-4 py-2 text-sm text-slate-400 hover:text-rose-400 transition flex items-center space-x-2">
-                    <i class="fa-solid fa-right-from-bracket"></i>
-                    <span>Sign Out</span>
+                <button onclick="openAddNodeModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center space-x-2">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Add Remote Node</span>
+                </button>
+                <div class="h-6 w-px bg-slate-800"></div>
+                <button onclick="logout()" class="px-3 py-2 text-sm text-slate-400 hover:text-rose-400 transition" title="Logout">
+                    <i class="fa-solid fa-right-from-bracket text-base"></i>
                 </button>
             </div>
         </div>
@@ -39,42 +43,49 @@
     <!-- Main Content -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-8">
         <!-- Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
             <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
                 <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Cluster Nodes</div>
                 <div id="statNodes" class="text-3xl font-bold text-white">0</div>
             </div>
             <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Total Active Users</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Registered Users</div>
                 <div id="statUsers" class="text-3xl font-bold text-indigo-400">0</div>
             </div>
             <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Global VPS Instances</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Active Instances</div>
                 <div id="statVps" class="text-3xl font-bold text-emerald-400">0</div>
             </div>
             <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Cluster RAM Load</div>
-                <div id="statClusterRam" class="text-3xl font-bold text-sky-400">0%</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">System Health</div>
+                <div class="text-3xl font-bold text-sky-400">100%</div>
             </div>
         </div>
 
-        <!-- Hypervisor Nodes -->
-        <div class="mb-10">
-            <h2 class="text-xl font-bold text-white mb-6">Hypervisor Cluster Nodes</h2>
-            <div id="nodesContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Hypervisor Nodes Management -->
+        <div class="mb-12">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Hypervisor Node Management</h2>
+                    <p class="text-xs text-slate-400 mt-1">Manage local and remote `nodeserver.py` instances deployed across your data centers.</p>
+                </div>
+                <button onclick="loadAdminData()" class="text-xs text-indigo-400 hover:underline flex items-center space-x-1">
+                    <i class="fa-solid fa-rotate"></i>
+                    <span>Refresh Nodes</span>
+                </button>
+            </div>
+
+            <div id="nodesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <!-- Loaded dynamically -->
             </div>
         </div>
 
-        <!-- All Users & VPS -->
-        <div class="mb-6 flex items-center justify-between">
-            <h2 class="text-xl font-bold text-white">Registered Users & Instances</h2>
-            <button onclick="loadAdminData()" class="text-xs text-indigo-400 hover:underline flex items-center space-x-1">
-                <i class="fa-solid fa-rotate"></i>
-                <span>Refresh Cluster</span>
-            </button>
+        <!-- Users & VPS Table -->
+        <div class="mb-6">
+            <h2 class="text-xl font-bold text-white mb-2">Users & Assigned Instances</h2>
+            <p class="text-xs text-slate-400">Overview of platform users and their provisioned virtual machines.</p>
         </div>
-        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden">
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl mb-12">
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead class="bg-slate-900 text-slate-400 uppercase text-xs tracking-wider border-b border-slate-800">
@@ -82,7 +93,7 @@
                             <th class="px-6 py-4">User</th>
                             <th class="px-6 py-4">Email</th>
                             <th class="px-6 py-4">Role</th>
-                            <th class="px-6 py-4">Assigned VPS</th>
+                            <th class="px-6 py-4">Provisioned VPS</th>
                         </tr>
                     </thead>
                     <tbody id="usersTableBody" class="divide-y divide-slate-800/60">
@@ -93,9 +104,46 @@
         </div>
     </main>
 
+    <!-- Add Node Modal -->
+    <div id="addNodeModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-8 shadow-2xl relative">
+            <button onclick="closeAddNodeModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 class="text-xl font-bold text-white mb-2">Connect Remote Node Agent</h3>
+            <p class="text-sm text-slate-400 mb-6">Deploy `nodeserver.py` on your remote VPS, then link it here using its IP and API token.</p>
+
+            <form onsubmit="handleAddNode(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Node Name</label>
+                    <input type="text" id="nodeName" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Tokyo AP-South Node 03">
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Host IP Address</label>
+                        <input type="text" id="nodeHost" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="103.25.14.99">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Port</label>
+                        <input type="number" id="nodePort" value="5000" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="5000">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Node API Token (--token)</label>
+                    <input type="password" id="nodeToken" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="nexus_secret_node_token_xyz">
+                </div>
+                <div id="nodeError" class="text-xs text-rose-400 hidden"></div>
+                <div class="flex items-center justify-end space-x-3 pt-4">
+                    <button type="button" onclick="closeAddNodeModal()" class="px-4 py-2.5 text-sm text-slate-400 hover:text-white transition">Cancel</button>
+                    <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition">Link & Verify Node</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="w-full border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
-        &copy; 2026 CloudVPS Administrator Console. Secure Node Management.
+        &copy; 2026 NexusVPS Administrator Console. Secure Cluster Management.
     </footer>
 
     <script>
@@ -116,6 +164,15 @@
             window.location.href = '/';
         }
 
+        function openAddNodeModal() {
+            document.getElementById('addNodeModal').classList.remove('hidden');
+        }
+
+        function closeAddNodeModal() {
+            document.getElementById('addNodeModal').classList.add('hidden');
+            document.getElementById('nodeError').classList.add('hidden');
+        }
+
         async function loadAdminData() {
             try {
                 const res = await fetch('/api/admin/stats');
@@ -132,34 +189,44 @@
             document.getElementById('statNodes').innerText = data.nodes.length;
             document.getElementById('statUsers').innerText = data.users.length;
             document.getElementById('statVps').innerText = data.vpsList.length;
-            document.getElementById('statClusterRam').innerText = '34.2%';
 
             // Nodes
             const nodesContainer = document.getElementById('nodesContainer');
             nodesContainer.innerHTML = data.nodes.map(n => `
-                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                    <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            <i class="fa-solid fa-circle text-[8px] mr-1.5"></i>${n.status.toUpperCase()}
-                        </span>
-                        <span class="text-xs font-mono text-slate-500">${n.id}</span>
-                    </div>
-                    <h3 class="font-bold text-white text-lg mb-1">${n.name}</h3>
-                    <p class="text-xs font-mono text-slate-400 mb-4">${n.host}:${n.port} &bull; ${n.os}</p>
+                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex flex-col justify-between hover:border-slate-700 transition">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${n.status === 'online' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+                                <i class="fa-solid fa-circle text-[8px] mr-1.5"></i>${n.status.toUpperCase()}
+                            </span>
+                            <span class="text-xs font-mono text-slate-500">${n.type || 'local'}</span>
+                        </div>
+                        <h3 class="font-bold text-white text-lg mb-1">${n.name}</h3>
+                        <p class="text-xs font-mono text-indigo-400 mb-4">${n.host}:${n.port} &bull; ${n.os}</p>
 
-                    <div class="space-y-2 text-xs text-slate-400">
-                        <div class="flex justify-between">
-                            <span>CPU Utilization:</span>
-                            <span class="text-white font-medium">${n.cpuUsage}%</span>
+                        <div class="space-y-2 mb-6 text-xs text-slate-400">
+                            <div class="flex justify-between">
+                                <span>CPU Utilization:</span>
+                                <span class="text-white font-medium">${n.cpuUsage}%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>RAM Allocated:</span>
+                                <span class="text-white font-medium">${n.ramUsed} GB / ${n.ramTotal} GB</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Virtualization:</span>
+                                <span class="text-emerald-400 font-medium">${n.kvmSupported ? 'KVM Ready' : 'Docker Only'}</span>
+                            </div>
                         </div>
-                        <div class="flex justify-between">
-                            <span>RAM Allocated:</span>
-                            <span class="text-white font-medium">${n.ramUsed} GB / ${n.ramTotal} GB</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Storage SSD:</span>
-                            <span class="text-white font-medium">${n.diskUsed} GB / ${n.diskTotal} GB</span>
-                        </div>
+                    </div>
+                    
+                    <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between">
+                        <span class="text-[11px] font-mono text-slate-500">ID: ${n.id}</span>
+                        ${n.type !== 'local' ? `
+                            <button onclick="deleteNode('${n.id}')" class="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-semibold rounded-lg transition">
+                                <i class="fa-solid fa-trash mr-1"></i> Remove Node
+                            </button>
+                        ` : '<span class="text-[11px] text-slate-500 italic">Primary Controller</span>'}
                     </div>
                 </div>
             `).join('');
@@ -178,11 +245,54 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 font-mono text-xs text-slate-300">
-                            ${userVps.length > 0 ? userVps.map(v => `<span class="inline-block bg-slate-800 px-2 py-1 rounded mr-1 mb-1">${v.name} (${v.ipAddress})</span>`).join('') : '<span class="text-slate-500">None</span>'}
+                            ${userVps.length > 0 ? userVps.map(v => `<span class="inline-block bg-slate-800 px-2.5 py-1 rounded-lg mr-1 mb-1 border border-slate-700">${v.name} (${v.ipAddress})</span>`).join('') : '<span class="text-slate-500">None</span>'}
                         </td>
                     </tr>
                 `;
             }).join('');
+        }
+
+        async function handleAddNode(e) {
+            e.preventDefault();
+            const name = document.getElementById('nodeName').value.trim();
+            const host = document.getElementById('nodeHost').value.trim();
+            const port = parseInt(document.getElementById('nodePort').value.trim());
+            const token = document.getElementById('nodeToken').value.trim();
+            const errDiv = document.getElementById('nodeError');
+            errDiv.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/nodes/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, host, port, token })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeAddNodeModal();
+                    loadAdminData();
+                } else {
+                    errDiv.innerText = data.error || 'Failed to add node';
+                    errDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                errDiv.innerText = 'Network error connecting to node agent.';
+                errDiv.classList.remove('hidden');
+            }
+        }
+
+        async function deleteNode(nodeId) {
+            if (!confirm("Are you sure you want to remove this node from the cluster?")) return;
+            try {
+                await fetch('/api/nodes/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nodeId })
+                });
+                loadAdminData();
+            } catch (err) {
+                console.error(err);
+            }
         }
     </script>
 </body>
