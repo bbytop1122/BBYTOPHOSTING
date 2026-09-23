@@ -3,18 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - NexusVPS Enterprise Node Management</title>
+    <title>Admin Cluster Console - NexusVPS Enterprise</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .glow-effect {
+            background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%);
+        }
     </style>
 </head>
-<body class="h-full text-slate-100 flex flex-col bg-slate-950 selection:bg-indigo-500 selection:text-white">
+<body class="h-full text-slate-100 flex flex-col bg-slate-950 selection:bg-indigo-500 selection:text-white glow-effect">
     <!-- Navbar -->
     <header class="w-full border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -23,16 +26,23 @@
                     <i class="fa-solid fa-shield-halved text-base"></i>
                 </div>
                 <div>
-                    <h1 class="font-bold text-lg tracking-tight text-white">NexusVPS <span class="text-rose-400 font-normal">Administrator</span></h1>
-                    <p id="adminSubtitle" class="text-xs text-slate-400">Node Management & Cluster Telemetry</p>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="font-extrabold text-lg tracking-tight text-white">NexusVPS</h1>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">Master Admin</span>
+                    </div>
+                    <p id="adminSubtitle" class="text-xs text-slate-400 font-mono">Loading cluster telemetry...</p>
                 </div>
             </div>
-            <div class="flex items-center space-x-4">
-                <button onclick="openAddNodeModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center space-x-2">
-                    <i class="fa-solid fa-plus"></i>
-                    <span>Add Remote Node</span>
+            <div class="flex items-center space-x-3">
+                <button onclick="openDeployVpsModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center space-x-2">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span>Create & Assign VPS</span>
                 </button>
-                <div class="h-6 w-px bg-slate-800"></div>
+                <button onclick="openAddNodeModal()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs sm:text-sm rounded-xl transition flex items-center space-x-2">
+                    <i class="fa-solid fa-server text-indigo-400"></i>
+                    <span>Link Node URL</span>
+                </button>
+                <div class="h-6 w-px bg-slate-800 mx-1"></div>
                 <button onclick="logout()" class="px-3 py-2 text-sm text-slate-400 hover:text-rose-400 transition" title="Logout">
                     <i class="fa-solid fa-right-from-bracket text-base"></i>
                 </button>
@@ -42,112 +52,325 @@
 
     <!-- Main Content -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-8">
-        <!-- Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-            <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Cluster Nodes</div>
-                <div id="statNodes" class="text-3xl font-bold text-white">0</div>
-            </div>
-            <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Registered Users</div>
-                <div id="statUsers" class="text-3xl font-bold text-indigo-400">0</div>
-            </div>
-            <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Active Instances</div>
-                <div id="statVps" class="text-3xl font-bold text-emerald-400">0</div>
-            </div>
-            <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">System Health</div>
-                <div class="text-3xl font-bold text-sky-400">100%</div>
+        <!-- Remote Node Agent Deployment Notice -->
+        <div class="mb-8 p-5 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-slate-900/60 border border-indigo-500/30 backdrop-blur-sm">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <h3 class="font-bold text-white text-sm">Deploy Remote Node Agent (`nodeserver.py`)</h3>
+                    </div>
+                    <p class="text-xs text-slate-400">Deploy this standalone script on any Linux server (Ubuntu/Debian/CentOS) with zero dependencies to turn it into an authentic hypervisor node.</p>
+                </div>
+                <div class="flex items-center space-x-2 w-full md:w-auto">
+                    <div class="flex-1 md:flex-initial bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-[11px] font-mono text-indigo-300 select-all overflow-x-auto whitespace-nowrap">
+                        curl -sO <span id="agentHostUrl">http://.../nodeserver.py</span> && python3 nodeserver.py --port 5000 --token YOUR_SECRET_TOKEN
+                    </div>
+                    <button onclick="copyAgentCmd()" class="px-3 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 rounded-xl text-xs font-semibold transition flex items-center space-x-1">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>Copy</span>
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- Hypervisor Nodes Management -->
+        <!-- Stats Overview -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+            <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Connected Nodes</div>
+                <div id="statNodes" class="text-3xl font-bold text-white">0</div>
+                <div class="text-[11px] text-emerald-400 mt-2 flex items-center"><i class="fa-solid fa-circle-check mr-1"></i> Live Verified</div>
+            </div>
+            <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Total VPS Instances</div>
+                <div id="statVps" class="text-3xl font-bold text-indigo-400">0</div>
+                <div class="text-[11px] text-slate-400 mt-2">Active Virtual Environments</div>
+            </div>
+            <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Registered Users</div>
+                <div id="statUsers" class="text-3xl font-bold text-sky-400">0</div>
+                <div class="text-[11px] text-slate-400 mt-2">Platform Accounts</div>
+            </div>
+            <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Cluster Telemetry</div>
+                <div class="text-3xl font-bold text-emerald-400">Online</div>
+                <div class="text-[11px] text-slate-400 mt-2">KVM & Docker Runtimes</div>
+            </div>
+        </div>
+
+        <!-- Hypervisor Nodes Section -->
         <div class="mb-12">
             <div class="flex items-center justify-between mb-6">
                 <div>
-                    <h2 class="text-xl font-bold text-white">Hypervisor Node Management</h2>
-                    <p class="text-xs text-slate-400 mt-1">Manage local and remote `nodeserver.py` instances deployed across your data centers.</p>
+                    <h2 class="text-xl font-bold text-white">Hypervisor Node Cluster</h2>
+                    <p class="text-xs text-slate-400 mt-1">Live connected servers verified via their remote node URL.</p>
                 </div>
-                <button onclick="loadAdminData()" class="text-xs text-indigo-400 hover:underline flex items-center space-x-1">
+                <button onclick="loadAdminData()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-indigo-400 border border-slate-700 rounded-lg transition flex items-center space-x-1.5">
                     <i class="fa-solid fa-rotate"></i>
-                    <span>Refresh Nodes</span>
+                    <span>Refresh Cluster</span>
                 </button>
             </div>
 
             <div id="nodesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Loaded dynamically -->
+                <div class="col-span-full p-8 text-center text-slate-500">Loading verified hypervisor nodes...</div>
             </div>
         </div>
 
-        <!-- Users & VPS Table -->
-        <div class="mb-6">
-            <h2 class="text-xl font-bold text-white mb-2">Users & Assigned Instances</h2>
-            <p class="text-xs text-slate-400">Overview of platform users and their provisioned virtual machines.</p>
+        <!-- All Provisioned VPS Management Table -->
+        <div class="mb-6 flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-bold text-white">All Provisioned Instances</h2>
+                <p class="text-xs text-slate-400 mt-1">Full administrative control over all customer VPS instances.</p>
+            </div>
+            <button onclick="openDeployVpsModal()" class="text-xs text-indigo-400 hover:underline flex items-center space-x-1">
+                <i class="fa-solid fa-plus"></i>
+                <span>Deploy New Instance</span>
+            </button>
         </div>
+
         <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl mb-12">
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead class="bg-slate-900 text-slate-400 uppercase text-xs tracking-wider border-b border-slate-800">
                         <tr>
-                            <th class="px-6 py-4">User</th>
-                            <th class="px-6 py-4">Email</th>
-                            <th class="px-6 py-4">Role</th>
-                            <th class="px-6 py-4">Provisioned VPS</th>
+                            <th class="px-6 py-4">VPS Instance</th>
+                            <th class="px-6 py-4">Assigned User</th>
+                            <th class="px-6 py-4">Hypervisor Node</th>
+                            <th class="px-6 py-4">Specs & IP</th>
+                            <th class="px-6 py-4">Status</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="usersTableBody" class="divide-y divide-slate-800/60">
-                        <tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">Loading users...</td></tr>
+                    <tbody id="vpsTableBody" class="divide-y divide-slate-800/60">
+                        <tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Loading instances...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </main>
 
-    <!-- Add Node Modal -->
+    <!-- Modal: Link Remote Node via URL -->
     <div id="addNodeModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-8 shadow-2xl relative">
             <button onclick="closeAddNodeModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white transition">
                 <i class="fa-solid fa-xmark text-lg"></i>
             </button>
-            <h3 class="text-xl font-bold text-white mb-2">Connect Remote Node Agent</h3>
-            <p class="text-sm text-slate-400 mb-6">Deploy `nodeserver.py` on your remote VPS, then link it here using its IP and API token.</p>
+            <div class="flex items-center space-x-3 mb-2">
+                <div class="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                    <i class="fa-solid fa-link"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white">Link Remote Node</h3>
+            </div>
+            <p class="text-xs text-slate-400 mb-6">Enter your remote node's URL where `nodeserver.py` is running. The controller will verify live uptime, RAM, and CPU telemetry before linking.</p>
 
             <form onsubmit="handleAddNode(event)" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Node Name</label>
-                    <input type="text" id="nodeName" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Tokyo AP-South Node 03">
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Node Friendly Name</label>
+                    <input type="text" id="nodeName" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Frankfurt AMD Ryzen Node 02">
                 </div>
-                <div class="grid grid-cols-3 gap-4">
-                    <div class="col-span-2">
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Host IP Address</label>
-                        <input type="text" id="nodeHost" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="103.25.14.99">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Port</label>
-                        <input type="number" id="nodePort" value="5000" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="5000">
-                    </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Remote Node URL</label>
+                    <input type="text" id="nodeUrl" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="http://192.168.1.100:5000 or http://node.mydomain.com:5000">
+                    <p class="text-[11px] text-slate-500 mt-1">Full HTTP/HTTPS URL including the agent port (default :5000).</p>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Node API Token (--token)</label>
-                    <input type="password" id="nodeToken" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="nexus_secret_node_token_xyz">
+                    <input type="password" id="nodeToken" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="nexus_secret_node_token_123">
                 </div>
+
+                <!-- Verification Preview Box -->
+                <div id="verifyStatusBox" class="hidden p-4 rounded-xl text-xs space-y-2"></div>
+
                 <div id="nodeError" class="text-xs text-rose-400 hidden"></div>
-                <div class="flex items-center justify-end space-x-3 pt-4">
-                    <button type="button" onclick="closeAddNodeModal()" class="px-4 py-2.5 text-sm text-slate-400 hover:text-white transition">Cancel</button>
-                    <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition">Link & Verify Node</button>
+                <div class="flex items-center justify-between pt-4 border-t border-slate-800/80">
+                    <button type="button" onclick="testNodeConnection()" id="testBtn" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-indigo-400 text-xs font-semibold rounded-xl transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-vial"></i>
+                        <span>Test Connection</span>
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" onclick="closeAddNodeModal()" class="px-4 py-2.5 text-xs text-slate-400 hover:text-white transition">Cancel</button>
+                        <button type="submit" id="submitNodeBtn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition">Link & Save Node</button>
+                    </div>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- Modal: Deploy VPS & Assign to User (ADMIN ONLY) -->
+    <div id="deployVpsModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-2xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeDeployVpsModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <div class="flex items-center space-x-3 mb-2">
+                <div class="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                    <i class="fa-solid fa-cube"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white">Provision New VPS Instance</h3>
+            </div>
+            <p class="text-xs text-slate-400 mb-6">Allocate dedicated computing resources on a verified hypervisor node and assign ownership to a user account.</p>
+
+            <form onsubmit="handleDeployVps(event)" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Assign to User</label>
+                        <select id="vpsTargetUser" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Target Hypervisor Node</label>
+                        <select id="vpsTargetNode" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Instance Name</label>
+                        <input type="text" id="vpsName" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Production API Server">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Hostname</label>
+                        <input type="text" id="vpsHostname" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="api-server-01">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Virtualization Engine</label>
+                        <select id="vpsType" onchange="toggleKvmOption()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
+                            <option value="docker">Docker Container (Systemd Active)</option>
+                            <option value="qemu">QEMU / KVM Virtual Machine</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Operating System</label>
+                        <select id="vpsOs" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
+                            <option value="ubuntu-22.04">Ubuntu 22.04 LTS (Jammy)</option>
+                            <option value="ubuntu-24.04">Ubuntu 24.04 LTS (Noble)</option>
+                            <option value="debian-12">Debian 12 Bookworm</option>
+                            <option value="debian-11">Debian 11 Bullseye</option>
+                            <option value="alpine-3.19">Alpine Linux 3.19 (Micro)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">vCPU Cores</label>
+                        <select id="vpsCpu" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
+                            <option value="1">1 Core</option>
+                            <option value="2" selected>2 Cores</option>
+                            <option value="4">4 Cores</option>
+                            <option value="8">8 Cores</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">RAM Allocation</label>
+                        <select id="vpsRam" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
+                            <option value="2">2 GB RAM</option>
+                            <option value="4" selected>4 GB RAM</option>
+                            <option value="8">8 GB RAM</option>
+                            <option value="16">16 GB RAM</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">NVMe Disk</label>
+                        <select id="vpsDisk" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
+                            <option value="30">30 GB SSD</option>
+                            <option value="50" selected>50 GB SSD</option>
+                            <option value="100">100 GB NVMe</option>
+                            <option value="200">200 GB NVMe</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Initial Root Password</label>
+                    <input type="text" id="vpsPass" required value="root#Nexus99!" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="root#Password123">
+                </div>
+
+                <div id="kvmOptionContainer" class="hidden p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-semibold text-white">Hardware KVM Acceleration</div>
+                        <div class="text-xs text-slate-400">Pass-through /dev/kvm virtualization directly to QEMU.</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="kvmEnabled" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
+
+                <div id="deployError" class="text-xs text-rose-400 hidden"></div>
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-800/80">
+                    <button type="button" onclick="closeDeployVpsModal()" class="px-4 py-2.5 text-xs text-slate-400 hover:text-white transition">Cancel</button>
+                    <button type="submit" id="deploySubmitBtn" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition">Deploy & Assign Instance</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: SSH / SSHX Credentials Preview -->
+    <div id="sshModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-8 shadow-2xl relative">
+            <button onclick="closeSshModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 class="text-xl font-bold text-white mb-1" id="sshModalTitle">SSH & SSHX Console Connection</h3>
+            <p class="text-xs text-slate-400 mb-6">Use these credentials to connect to your virtual machine.</p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Standard SSH Command</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="sshCommandInput" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-indigo-300 font-mono text-xs focus:outline-none">
+                        <button onclick="copyToClipboard('sshCommandInput')" class="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">SSHX Live Web Session URL</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="sshxUrlInput" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-emerald-300 font-mono text-xs focus:outline-none">
+                        <a id="sshxOpenLink" href="#" target="_blank" class="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition flex items-center space-x-1">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                            <span>Open</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Root Password</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="sshPassInput" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-300 font-mono text-xs focus:outline-none">
+                        <button onclick="copyToClipboard('sshPassInput')" class="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-800 flex justify-end">
+                <button onclick="closeSshModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="w-full border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
-        &copy; 2026 NexusVPS Administrator Console. Secure Cluster Management.
+        &copy; 2026 NexusVPS Enterprise Administrator Console &bull; Real Node & Resource Isolation.
     </footer>
 
     <script>
         let currentUser = null;
+        let clusterNodes = [];
+        let clusterUsers = [];
+        let clusterVps = [];
+
         try {
             currentUser = JSON.parse(localStorage.getItem('cloud_vps_user') || 'null');
         } catch (e) {}
@@ -156,6 +379,7 @@
             window.location.href = '/';
         } else {
             document.getElementById('adminSubtitle').innerText = `${currentUser.name} (${currentUser.email})`;
+            document.getElementById('agentHostUrl').innerText = `${window.location.origin}/nodeserver.py`;
             loadAdminData();
         }
 
@@ -164,13 +388,47 @@
             window.location.href = '/';
         }
 
+        function copyAgentCmd() {
+            const cmd = `curl -sO ${window.location.origin}/nodeserver.py && python3 nodeserver.py --port 5000 --token nexus_secret_node_token_123`;
+            navigator.clipboard.writeText(cmd);
+            alert("Copied agent deploy command to clipboard!");
+        }
+
+        function copyToClipboard(id) {
+            const el = document.getElementById(id);
+            el.select();
+            navigator.clipboard.writeText(el.value);
+            alert("Copied to clipboard!");
+        }
+
         function openAddNodeModal() {
             document.getElementById('addNodeModal').classList.remove('hidden');
+            document.getElementById('verifyStatusBox').classList.add('hidden');
+            document.getElementById('nodeError').classList.add('hidden');
         }
 
         function closeAddNodeModal() {
             document.getElementById('addNodeModal').classList.add('hidden');
-            document.getElementById('nodeError').classList.add('hidden');
+        }
+
+        function openDeployVpsModal() {
+            document.getElementById('deployVpsModal').classList.remove('hidden');
+            toggleKvmOption();
+        }
+
+        function closeDeployVpsModal() {
+            document.getElementById('deployVpsModal').classList.add('hidden');
+            document.getElementById('deployError').classList.add('hidden');
+        }
+
+        function toggleKvmOption() {
+            const type = document.getElementById('vpsType').value;
+            const container = document.getElementById('kvmOptionContainer');
+            if (type === 'qemu') {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
         }
 
         async function loadAdminData() {
@@ -178,96 +436,231 @@
                 const res = await fetch('/api/admin/stats');
                 const data = await res.json();
                 if (data.success) {
-                    renderAdmin(data);
+                    clusterNodes = data.nodes;
+                    clusterUsers = data.users;
+                    clusterVps = data.vpsList;
+                    renderAdmin();
                 }
             } catch (err) {
                 console.error("Failed to load admin stats", err);
             }
         }
 
-        function renderAdmin(data) {
-            document.getElementById('statNodes').innerText = data.nodes.length;
-            document.getElementById('statUsers').innerText = data.users.length;
-            document.getElementById('statVps').innerText = data.vpsList.length;
+        function renderAdmin() {
+            document.getElementById('statNodes').innerText = clusterNodes.length;
+            document.getElementById('statUsers').innerText = clusterUsers.length;
+            document.getElementById('statVps').innerText = clusterVps.length;
 
-            // Nodes
+            // Populate User Select in Deploy Modal
+            const userSelect = document.getElementById('vpsTargetUser');
+            userSelect.innerHTML = clusterUsers.map(u => `
+                <option value="${u.id}">${u.name} (${u.email}) [${u.role.toUpperCase()}]</option>
+            `).join('');
+
+            // Populate Node Select in Deploy Modal
+            const nodeSelect = document.getElementById('vpsTargetNode');
+            nodeSelect.innerHTML = clusterNodes.map(n => `
+                <option value="${n.id}">${n.name} (${n.url || n.type}) - ${n.ram_used_gb}/${n.ram_total_gb}GB RAM</option>
+            `).join('');
+
+            // Render Nodes Cards
             const nodesContainer = document.getElementById('nodesContainer');
-            nodesContainer.innerHTML = data.nodes.map(n => `
+            nodesContainer.innerHTML = clusterNodes.map(n => `
                 <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex flex-col justify-between hover:border-slate-700 transition">
                     <div>
                         <div class="flex items-center justify-between mb-3">
                             <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${n.status === 'online' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
                                 <i class="fa-solid fa-circle text-[8px] mr-1.5"></i>${n.status.toUpperCase()}
                             </span>
-                            <span class="text-xs font-mono text-slate-500">${n.type || 'local'}</span>
+                            <span class="text-xs font-mono text-indigo-400 bg-slate-800 px-2 py-0.5 rounded">${n.type === 'local' ? 'Local Controller' : 'Remote Node'}</span>
                         </div>
                         <h3 class="font-bold text-white text-lg mb-1">${n.name}</h3>
-                        <p class="text-xs font-mono text-indigo-400 mb-4">${n.host}:${n.port} &bull; ${n.os}</p>
+                        <p class="text-xs font-mono text-slate-400 mb-4 truncate" title="${n.url || 'Internal'}">${n.url || 'http://localhost:' + window.location.port}</p>
 
                         <div class="space-y-2 mb-6 text-xs text-slate-400">
                             <div class="flex justify-between">
-                                <span>CPU Utilization:</span>
-                                <span class="text-white font-medium">${n.cpuUsage}%</span>
+                                <span>OS & Host:</span>
+                                <span class="text-white font-medium truncate ml-2 max-w-[200px]" title="${n.os}">${n.os}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>System Uptime:</span>
+                                <span class="text-emerald-400 font-medium font-mono">${n.uptime_str || 'N/A'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>CPU Cores & Load:</span>
+                                <span class="text-white font-medium">${n.cpu_cores || 4} Cores &bull; ${n.cpu_usage_percent || 15}%</span>
                             </div>
                             <div class="flex justify-between">
                                 <span>RAM Allocated:</span>
-                                <span class="text-white font-medium">${n.ramUsed} GB / ${n.ramTotal} GB</span>
+                                <span class="text-white font-medium">${n.ram_used_gb} GB / ${n.ram_total_gb} GB</span>
                             </div>
                             <div class="flex justify-between">
-                                <span>Virtualization:</span>
-                                <span class="text-emerald-400 font-medium">${n.kvmSupported ? 'KVM Ready' : 'Docker Only'}</span>
+                                <span>Storage Used:</span>
+                                <span class="text-white font-medium">${n.disk_used_gb} GB / ${n.disk_total_gb} GB</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>KVM / Docker:</span>
+                                <span class="text-indigo-400 font-medium">${n.kvm_supported ? 'KVM Ready' : 'Docker Engine'}</span>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between">
                         <span class="text-[11px] font-mono text-slate-500">ID: ${n.id}</span>
                         ${n.type !== 'local' ? `
                             <button onclick="deleteNode('${n.id}')" class="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-semibold rounded-lg transition">
-                                <i class="fa-solid fa-trash mr-1"></i> Remove Node
+                                <i class="fa-solid fa-trash mr-1"></i> Remove
                             </button>
-                        ` : '<span class="text-[11px] text-slate-500 italic">Primary Controller</span>'}
+                        ` : `
+                            <button onclick="window.location.href='/terminal?nodeId=node_local_1'" class="px-3 py-1.5 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 text-xs font-semibold rounded-lg transition flex items-center space-x-1">
+                                <i class="fa-solid fa-terminal"></i>
+                                <span>Host Shell</span>
+                            </button>
+                        `}
                     </div>
                 </div>
             `).join('');
 
-            // Users Table
-            const tbody = document.getElementById('usersTableBody');
-            tbody.innerHTML = data.users.map(u => {
-                const userVps = data.vpsList.filter(v => v.userId === u.id);
-                return `
-                    <tr class="hover:bg-slate-900/40 transition">
-                        <td class="px-6 py-4 font-medium text-white">${u.name}</td>
-                        <td class="px-6 py-4 text-slate-400 font-mono text-xs">${u.email}</td>
-                        <td class="px-6 py-4">
-                            <span class="text-xs px-2.5 py-1 rounded-full font-semibold ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'}">
-                                ${u.role.toUpperCase()}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 font-mono text-xs text-slate-300">
-                            ${userVps.length > 0 ? userVps.map(v => `<span class="inline-block bg-slate-800 px-2.5 py-1 rounded-lg mr-1 mb-1 border border-slate-700">${v.name} (${v.ipAddress})</span>`).join('') : '<span class="text-slate-500">None</span>'}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            // Render VPS Table
+            const tbody = document.getElementById('vpsTableBody');
+            if (clusterVps.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center">
+                    <div class="max-w-md mx-auto space-y-3">
+                        <div class="w-12 h-12 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mx-auto text-lg">
+                            <i class="fa-solid fa-server"></i>
+                        </div>
+                        <h4 class="font-bold text-white text-base">No VPS Instances Provisioned</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">No virtual environments have been created yet. You can provision a real cloud instance with dedicated vCPU and RAM, or open the direct hypervisor host terminal.</p>
+                        <div class="pt-2 flex items-center justify-center space-x-3">
+                            <button onclick="openDeployVpsModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-indigo-600/20 transition">
+                                <i class="fa-solid fa-plus mr-1"></i> Create First VPS
+                            </button>
+                            <button onclick="window.location.href='/terminal?nodeId=node_local_1'" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-xl transition">
+                                <i class="fa-solid fa-terminal mr-1"></i> Open Host Terminal
+                            </button>
+                        </div>
+                    </div>
+                </td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = clusterVps.map(v => `
+                <tr class="hover:bg-slate-900/40 transition">
+                    <td class="px-6 py-4">
+                        <div class="font-semibold text-white">${v.name}</div>
+                        <div class="text-xs font-mono text-slate-400">${v.hostname} &bull; <span class="text-indigo-400 uppercase">${v.vpsType}</span></div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="font-medium text-slate-200">${v.userName}</div>
+                        <div class="text-xs font-mono text-slate-500">${v.userId}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-xs text-slate-300 font-medium">${v.nodeName}</div>
+                    </td>
+                    <td class="px-6 py-4 font-mono text-xs">
+                        <div class="text-indigo-400 font-semibold">${v.ipAddress}</div>
+                        <div class="text-slate-400">${v.cpuCores} vCPU &bull; ${v.ramGb}GB RAM &bull; ${v.diskGb}GB</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="text-xs px-2.5 py-1 rounded-full font-semibold ${v.status === 'running' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
+                            ${v.status.toUpperCase()}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex items-center justify-end space-x-2">
+                            <button onclick="openTerminal('${v.id}')" class="p-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 rounded-lg transition" title="Open Web Terminal">
+                                <i class="fa-solid fa-terminal text-xs"></i>
+                            </button>
+                            <button onclick="showSshDetails('${v.id}')" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition" title="SSH Credentials & SSHX">
+                                <i class="fa-solid fa-key text-xs"></i>
+                            </button>
+                            <button onclick="vpsAction('${v.id}', '${v.status === 'running' ? 'stop' : 'start'}')" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition" title="${v.status === 'running' ? 'Stop' : 'Start'}">
+                                <i class="fa-solid ${v.status === 'running' ? 'fa-stop text-amber-400' : 'fa-play text-emerald-400'} text-xs"></i>
+                            </button>
+                            <button onclick="deleteVps('${v.id}')" class="p-2 bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 rounded-lg transition" title="Purge Instance">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function testNodeConnection() {
+            const url = document.getElementById('nodeUrl').value.trim();
+            const token = document.getElementById('nodeToken').value.trim();
+            const box = document.getElementById('verifyStatusBox');
+            const testBtn = document.getElementById('testBtn');
+
+            if (!url || !token) {
+                alert("Please enter Node URL and API Token first.");
+                return;
+            }
+
+            testBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>Pinging...</span>`;
+            box.classList.remove('hidden');
+            box.className = "p-4 rounded-xl text-xs space-y-2 bg-slate-950 border border-slate-800 text-slate-400";
+            box.innerHTML = `Sending verification request to ${url}/stats ...`;
+
+            try {
+                const res = await fetch('/api/nodes/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: currentUser.role, url, token })
+                });
+                const data = await res.json();
+                testBtn.innerHTML = `<i class="fa-solid fa-vial"></i><span>Test Connection</span>`;
+
+                if (data.success && data.stats) {
+                    const s = data.stats;
+                    box.className = "p-4 rounded-xl text-xs space-y-2 bg-emerald-950/40 border border-emerald-500/30 text-emerald-200";
+                    box.innerHTML = `
+                        <div class="font-bold text-emerald-400 flex items-center space-x-1.5">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>Node Verified & Responding Authentically</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                            <div>Hostname: <span class="font-mono text-white">${s.hostname}</span></div>
+                            <div>Uptime: <span class="font-mono text-white">${s.uptime_str}</span></div>
+                            <div>RAM: <span class="font-mono text-white">${s.ram_used_gb}G / ${s.ram_total_gb}G</span></div>
+                            <div>CPU: <span class="font-mono text-white">${s.cpu_cores} Cores (${s.cpu_usage_percent}%)</span></div>
+                            <div>KVM Hypervisor: <span class="font-mono text-white">${s.kvm_supported ? 'Available' : 'No (/dev/kvm)'}</span></div>
+                            <div>Docker Engine: <span class="font-mono text-white">${s.docker_supported ? 'Active' : 'Missing'}</span></div>
+                        </div>
+                    `;
+                } else {
+                    box.className = "p-4 rounded-xl text-xs space-y-2 bg-rose-950/40 border border-rose-500/30 text-rose-300";
+                    box.innerHTML = `<div class="font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Verification Failed:</div><div>${data.error || 'Connection refused'}</div>`;
+                }
+            } catch (err) {
+                testBtn.innerHTML = `<i class="fa-solid fa-vial"></i><span>Test Connection</span>`;
+                box.className = "p-4 rounded-xl text-xs bg-rose-950/40 border border-rose-500/30 text-rose-300";
+                box.innerText = "Network error communicating with controller.";
+            }
         }
 
         async function handleAddNode(e) {
             e.preventDefault();
             const name = document.getElementById('nodeName').value.trim();
-            const host = document.getElementById('nodeHost').value.trim();
-            const port = parseInt(document.getElementById('nodePort').value.trim());
+            const url = document.getElementById('nodeUrl').value.trim();
             const token = document.getElementById('nodeToken').value.trim();
             const errDiv = document.getElementById('nodeError');
+            const submitBtn = document.getElementById('submitNodeBtn');
+
             errDiv.classList.add('hidden');
+            submitBtn.innerText = "Verifying & Linking...";
+            submitBtn.disabled = true;
 
             try {
                 const res = await fetch('/api/nodes/add', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, host, port, token })
+                    body: JSON.stringify({ role: currentUser.role, name, url, token })
                 });
                 const data = await res.json();
+                submitBtn.innerText = "Link & Save Node";
+                submitBtn.disabled = false;
+
                 if (data.success) {
                     closeAddNodeModal();
                     loadAdminData();
@@ -276,8 +669,96 @@
                     errDiv.classList.remove('hidden');
                 }
             } catch (err) {
-                errDiv.innerText = 'Network error connecting to node agent.';
+                submitBtn.innerText = "Link & Save Node";
+                submitBtn.disabled = false;
+                errDiv.innerText = 'Network error during node registration.';
                 errDiv.classList.remove('hidden');
+            }
+        }
+
+        async function handleDeployVps(e) {
+            e.preventDefault();
+            const userId = document.getElementById('vpsTargetUser').value;
+            const nodeId = document.getElementById('vpsTargetNode').value;
+            const name = document.getElementById('vpsName').value.trim();
+            const hostname = document.getElementById('vpsHostname').value.trim();
+            const vpsType = document.getElementById('vpsType').value;
+            const os = document.getElementById('vpsOs').value;
+            const cpuCores = parseInt(document.getElementById('vpsCpu').value);
+            const ramGb = parseInt(document.getElementById('vpsRam').value);
+            const diskGb = parseInt(document.getElementById('vpsDisk').value);
+            const rootPass = document.getElementById('vpsPass').value.trim();
+            const kvmEnabled = document.getElementById('kvmEnabled').checked;
+
+            const errDiv = document.getElementById('deployError');
+            const submitBtn = document.getElementById('deploySubmitBtn');
+
+            errDiv.classList.add('hidden');
+            submitBtn.innerText = "Provisioning on Node...";
+            submitBtn.disabled = true;
+
+            try {
+                const res = await fetch('/api/vps/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        creatorRole: currentUser.role,
+                        userId,
+                        nodeId,
+                        name,
+                        hostname,
+                        vpsType,
+                        os,
+                        cpuCores,
+                        ramGb,
+                        diskGb,
+                        rootPass,
+                        kvmEnabled
+                    })
+                });
+                const data = await res.json();
+                submitBtn.innerText = "Deploy & Assign Instance";
+                submitBtn.disabled = false;
+
+                if (data.success) {
+                    closeDeployVpsModal();
+                    loadAdminData();
+                } else {
+                    errDiv.innerText = data.error || 'Failed to deploy instance';
+                    errDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                submitBtn.innerText = "Deploy & Assign Instance";
+                submitBtn.disabled = false;
+                errDiv.innerText = "Network error deploying VPS.";
+                errDiv.classList.remove('hidden');
+            }
+        }
+
+        async function vpsAction(vpsId, action) {
+            try {
+                await fetch('/api/vps/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: currentUser.role, userId: currentUser.id, vpsId, action })
+                });
+                loadAdminData();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function deleteVps(vpsId) {
+            if (!confirm("Are you sure you want to permanently delete this instance from the hypervisor?")) return;
+            try {
+                await fetch('/api/vps/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: currentUser.role, vpsId })
+                });
+                loadAdminData();
+            } catch (err) {
+                console.error(err);
             }
         }
 
@@ -287,12 +768,31 @@
                 await fetch('/api/nodes/delete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nodeId })
+                    body: JSON.stringify({ role: currentUser.role, nodeId })
                 });
                 loadAdminData();
             } catch (err) {
                 console.error(err);
             }
+        }
+
+        function showSshDetails(vpsId) {
+            const v = clusterVps.find(x => x.id === vpsId);
+            if (!v) return;
+            document.getElementById('sshModalTitle').innerText = `${v.name} (${v.ipAddress})`;
+            document.getElementById('sshCommandInput').value = v.sshCommand || `ssh root@${v.ipAddress} -p 22`;
+            document.getElementById('sshxUrlInput').value = v.sshxUrl || `https://sshx.io/s/${v.id}`;
+            document.getElementById('sshxOpenLink').href = v.sshxUrl || `https://sshx.io/s/${v.id}`;
+            document.getElementById('sshPassInput').value = v.rootPass || 'root#Nexus99!';
+            document.getElementById('sshModal').classList.remove('hidden');
+        }
+
+        function closeSshModal() {
+            document.getElementById('sshModal').classList.add('hidden');
+        }
+
+        function openTerminal(vpsId) {
+            window.location.href = `/terminal?vpsId=${vpsId}`;
         }
     </script>
 </body>

@@ -3,18 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Dashboard - NexusVPS Enterprise</title>
+    <title>Customer Dashboard - NexusVPS Enterprise</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .glow-effect {
+            background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.1) 0%, transparent 60%);
+        }
     </style>
 </head>
-<body class="h-full text-slate-100 flex flex-col bg-slate-950 selection:bg-indigo-500 selection:text-white">
+<body class="h-full text-slate-100 flex flex-col bg-slate-950 selection:bg-indigo-500 selection:text-white glow-effect">
     <!-- Navbar -->
     <header class="w-full border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -23,14 +26,18 @@
                     <i class="fa-solid fa-server text-base"></i>
                 </div>
                 <div>
-                    <h1 class="font-bold text-lg tracking-tight text-white">NexusVPS <span class="text-indigo-400 font-normal">Console</span></h1>
-                    <p id="userSubtitle" class="text-xs text-slate-400">Loading user session...</p>
+                    <h1 class="font-extrabold text-lg tracking-tight text-white">NexusVPS <span class="text-indigo-400 font-medium">Console</span></h1>
+                    <p id="userSubtitle" class="text-xs text-slate-400 font-mono">Loading user session...</p>
                 </div>
             </div>
             <div class="flex items-center space-x-4">
-                <button onclick="openCreateModal()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center space-x-2">
-                    <i class="fa-solid fa-plus"></i>
-                    <span>Deploy New VPS</span>
+                <div class="hidden sm:flex items-center space-x-2 text-xs text-slate-400 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+                    <i class="fa-solid fa-user-shield text-indigo-400"></i>
+                    <span id="userBadgeRole">User Account</span>
+                </div>
+                <button onclick="fetchUserVps()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs text-indigo-400 font-semibold rounded-xl border border-slate-700 transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-rotate"></i>
+                    <span>Refresh</span>
                 </button>
                 <div class="h-6 w-px bg-slate-800"></div>
                 <button onclick="logout()" class="px-3 py-2 text-sm text-slate-400 hover:text-rose-400 transition" title="Logout">
@@ -42,152 +49,111 @@
 
     <!-- Main Content -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-8">
-        <!-- Overview Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <!-- Overview Resource Stats -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
             <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Total Instances</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Assigned Instances</div>
                 <div id="statTotalVps" class="text-3xl font-bold text-white">0</div>
+                <div class="text-[11px] text-slate-400 mt-2">Provisioned by Admin</div>
             </div>
             <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Running VPS</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Active State</div>
                 <div id="statRunningVps" class="text-3xl font-bold text-emerald-400">0</div>
+                <div class="text-[11px] text-emerald-400 mt-2 flex items-center"><i class="fa-solid fa-circle text-[6px] mr-1"></i> Online & Reachable</div>
             </div>
             <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
                 <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Dedicated RAM</div>
                 <div id="statRam" class="text-3xl font-bold text-indigo-400">0 GB</div>
+                <div class="text-[11px] text-slate-400 mt-2">Guaranteed Memory</div>
             </div>
             <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">SSD Storage</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Fast NVMe SSD</div>
                 <div id="statDisk" class="text-3xl font-bold text-sky-400">0 GB</div>
+                <div class="text-[11px] text-slate-400 mt-2">Persistent High-Speed Storage</div>
             </div>
         </div>
 
-        <!-- VPS Instances Section -->
+        <!-- VPS Instances Section Header -->
         <div class="flex items-center justify-between mb-6">
-            <h2 class="text-xl font-bold text-white">Your Cloud Instances</h2>
-            <button onclick="fetchVpsList()" class="text-xs text-indigo-400 hover:underline flex items-center space-x-1">
-                <i class="fa-solid fa-rotate"></i>
-                <span>Refresh Status</span>
-            </button>
+            <div>
+                <h2 class="text-xl font-bold text-white">My Cloud Virtual Machines</h2>
+                <p class="text-xs text-slate-400 mt-1">Manage power state, open web terminal console, or grab your SSH & SSHX credentials.</p>
+            </div>
+            <div class="text-xs text-slate-500 font-mono flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span>Hypervisor Sync Active</span>
+            </div>
         </div>
 
+        <!-- VPS Instances Container -->
         <div id="vpsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Loaded dynamically -->
-            <div class="p-8 text-center text-slate-500 col-span-full">Loading instances...</div>
+            <div class="col-span-full p-12 text-center text-slate-500">Loading instances...</div>
         </div>
     </main>
 
-    <!-- Create VPS Modal -->
-    <div id="createModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-2xl p-8 shadow-2xl relative">
-            <button onclick="closeCreateModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white transition">
+    <!-- Modal: SSH & SSHX Access Details -->
+    <div id="sshModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-8 shadow-2xl relative">
+            <button onclick="closeSshModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white transition">
                 <i class="fa-solid fa-xmark text-lg"></i>
             </button>
-            <h3 class="text-xl font-bold text-white mb-2">Deploy Virtual Server</h3>
-            <p class="text-sm text-slate-400 mb-6">Provision dedicated KVM or Docker virtual instances across cluster nodes.</p>
+            <div class="flex items-center space-x-3 mb-2">
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                    <i class="fa-solid fa-key"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-white" id="sshModalTitle">SSH & SSHX Terminal</h3>
+                    <p class="text-xs text-slate-400">Direct root access credentials for your instance.</p>
+                </div>
+            </div>
 
-            <form onsubmit="handleCreateVps(event)" class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Instance Name</label>
-                        <input type="text" id="vpsName" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Production Web App">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Hostname</label>
-                        <input type="text" id="vpsHostname" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="web-prod-01">
+            <div class="space-y-4 mt-6">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">SSH Command (Port 22)</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="sshCommandInput" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-indigo-300 font-mono text-xs focus:outline-none">
+                        <button onclick="copyToClipboard('sshCommandInput')" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Target Hypervisor Node</label>
-                        <select id="vpsNode" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
-                            <!-- Populated dynamically -->
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Virtualization Type</label>
-                        <select id="vpsType" onchange="toggleKvmOption()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
-                            <option value="docker">Docker (Systemd Enabled)</option>
-                            <option value="qemu">QEMU / KVM Virtual Machine</option>
-                        </select>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">SSHX Live Browser Stream</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="sshxUrlInput" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-emerald-300 font-mono text-xs focus:outline-none">
+                        <a id="sshxOpenLink" href="#" target="_blank" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                            <span>Open</span>
+                        </a>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Operating System</label>
-                        <select id="vpsOs" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
-                            <option value="ubuntu-22.04">Ubuntu 22.04.4 LTS (Systemctl)</option>
-                            <option value="ubuntu-24.04">Ubuntu 24.04 LTS (Noble)</option>
-                            <option value="debian-12">Debian 12 Bookworm</option>
-                            <option value="debian-11">Debian 11 Bullseye</option>
-                            <option value="alpine-3.19">Alpine Linux 3.19 (Micro)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Root Password</label>
-                        <input type="text" id="vpsPass" required value="root#Cloud99!" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="root#Password123">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Root Password</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="sshPassInput" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-300 font-mono text-xs focus:outline-none">
+                        <button onclick="copyToClipboard('sshPassInput')" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
                     </div>
                 </div>
+            </div>
 
-                <div class="grid grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">CPU Cores</label>
-                        <select id="vpsCpu" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
-                            <option value="1">1 vCPU Core</option>
-                            <option value="2">2 vCPU Cores</option>
-                            <option value="4" selected>4 vCPU Cores</option>
-                            <option value="8">8 vCPU Cores</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Dedicated RAM</label>
-                        <select id="vpsRam" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
-                            <option value="2">2 GB RAM</option>
-                            <option value="4">4 GB RAM</option>
-                            <option value="8" selected>8 GB RAM</option>
-                            <option value="16">16 GB RAM</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">NVMe Disk</label>
-                        <select id="vpsDisk" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-white text-sm focus:outline-none focus:border-indigo-500">
-                            <option value="40">40 GB SSD</option>
-                            <option value="100" selected>100 GB SSD</option>
-                            <option value="250">250 GB NVMe</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div id="kvmOptionContainer" class="hidden p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
-                    <div>
-                        <div class="text-sm font-semibold text-white">Hardware KVM Acceleration</div>
-                        <div class="text-xs text-slate-400">Enable raw KVM hypervisor pass-through for QEMU instance.</div>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="kvmEnabled" class="sr-only peer" checked>
-                        <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                    </label>
-                </div>
-
-                <div id="createError" class="text-xs text-rose-400 hidden"></div>
-                <div class="flex items-center justify-end space-x-3 pt-4">
-                    <button type="button" onclick="closeCreateModal()" class="px-4 py-2.5 text-sm text-slate-400 hover:text-white transition">Cancel</button>
-                    <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition">Deploy Instance</button>
-                </div>
-            </form>
+            <div class="mt-6 pt-4 border-t border-slate-800 flex justify-end">
+                <button onclick="closeSshModal()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">Close</button>
+            </div>
         </div>
     </div>
 
     <!-- Footer -->
     <footer class="w-full border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
-        &copy; 2026 NexusVPS Enterprise. Secure Virtualization Console.
+        &copy; 2026 NexusVPS Enterprise Cloud Virtualization &bull; Secure User Instance Console.
     </footer>
 
     <script>
         let currentUser = null;
-        let clusterNodes = [];
+        let myVpsList = [];
 
         try {
             currentUser = JSON.parse(localStorage.getItem('cloud_vps_user') || 'null');
@@ -197,7 +163,8 @@
             window.location.href = '/';
         } else {
             document.getElementById('userSubtitle').innerText = `${currentUser.name} (${currentUser.email})`;
-            fetchNodesAndVps();
+            document.getElementById('userBadgeRole').innerText = currentUser.role === 'admin' ? 'Master Admin' : 'Customer Account';
+            fetchUserVps();
         }
 
         function logout() {
@@ -205,57 +172,40 @@
             window.location.href = '/';
         }
 
-        async function fetchNodesAndVps() {
-            try {
-                const nodesRes = await fetch('/api/nodes');
-                const nodesData = await nodesRes.json();
-                if (nodesData.success) {
-                    clusterNodes = nodesData.nodes;
-                    const nodeSelect = document.getElementById('vpsNode');
-                    nodeSelect.innerHTML = clusterNodes.map(n => `<option value="${n.id}">${n.name} (${n.host})</option>`).join('');
-                }
+        function copyToClipboard(id) {
+            const el = document.getElementById(id);
+            el.select();
+            navigator.clipboard.writeText(el.value);
+            alert("Copied to clipboard!");
+        }
 
-                const vpsRes = await fetch(`/api/vps?userId=${currentUser.id}`);
-                const vpsData = await vpsRes.json();
-                if (vpsData.success) {
-                    renderVps(vpsData.vpsList);
+        async function fetchUserVps() {
+            try {
+                const res = await fetch(`/api/vps?userId=${currentUser.id}&role=${currentUser.role}`);
+                const data = await res.json();
+                if (data.success) {
+                    myVpsList = data.vpsList;
+                    renderVpsCards();
                 }
             } catch (err) {
-                console.error("Failed to fetch cluster data", err);
+                console.error("Failed to load instances", err);
             }
         }
 
-        function openCreateModal() {
-            document.getElementById('createModal').classList.remove('hidden');
-            toggleKvmOption();
-        }
-
-        function closeCreateModal() {
-            document.getElementById('createModal').classList.add('hidden');
-            document.getElementById('createError').classList.add('hidden');
-        }
-
-        function toggleKvmOption() {
-            const type = document.getElementById('vpsType').value;
-            const container = document.getElementById('kvmOptionContainer');
-            if (type === 'qemu') {
-                container.classList.remove('hidden');
-            } else {
-                container.classList.add('hidden');
-            }
-        }
-
-        function renderVps(list) {
+        function renderVpsCards() {
             const container = document.getElementById('vpsContainer');
-            if (!list || list.length === 0) {
+            if (!myVpsList || myVpsList.length === 0) {
                 container.innerHTML = `
                     <div class="col-span-full p-12 text-center bg-slate-900/40 border border-slate-800/80 rounded-2xl">
-                        <div class="w-12 h-12 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto mb-4 text-xl">
+                        <div class="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto mb-4 text-2xl">
                             <i class="fa-solid fa-server"></i>
                         </div>
-                        <h3 class="font-semibold text-white mb-1">No Cloud Instances Found</h3>
-                        <p class="text-sm text-slate-400 mb-6">Deploy your first KVM or Docker container instance instantly.</p>
-                        <button onclick="openCreateModal()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl shadow-lg transition">Deploy Now</button>
+                        <h3 class="font-bold text-white text-lg mb-1">No Virtual Machines Assigned</h3>
+                        <p class="text-sm text-slate-400 max-w-md mx-auto mb-4">You do not have any active VPS instances allocated yet. Please contact your system administrator to provision a virtual machine for your account.</p>
+                        <div class="inline-flex items-center space-x-2 text-xs text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20">
+                            <i class="fa-solid fa-info-circle"></i>
+                            <span>Admin provisions dedicated RAM, vCPU, and Node assignments.</span>
+                        </div>
                     </div>
                 `;
                 document.getElementById('statTotalVps').innerText = 0;
@@ -265,71 +215,84 @@
                 return;
             }
 
-            let totalVps = list.length;
-            let runningVps = list.filter(v => v.status === 'running').length;
-            let totalRam = list.reduce((acc, v) => acc + (v.ramGb || 0), 0);
-            let totalDisk = list.reduce((acc, v) => acc + (v.diskGb || 0), 0);
+            const total = myVpsList.length;
+            const running = myVpsList.filter(v => v.status === 'running').length;
+            const totalRam = myVpsList.reduce((acc, v) => acc + (v.ramGb || 0), 0);
+            const totalDisk = myVpsList.reduce((acc, v) => acc + (v.diskGb || 0), 0);
 
-            document.getElementById('statTotalVps').innerText = totalVps;
-            document.getElementById('statRunningVps').innerText = runningVps;
+            document.getElementById('statTotalVps').innerText = total;
+            document.getElementById('statRunningVps').innerText = running;
             document.getElementById('statRam').innerText = totalRam + ' GB';
             document.getElementById('statDisk').innerText = totalDisk + ' GB';
 
-            container.innerHTML = list.map(v => `
+            container.innerHTML = myVpsList.map(v => `
                 <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex flex-col justify-between hover:border-slate-700 transition">
                     <div>
+                        <!-- Header Status -->
                         <div class="flex items-center justify-between mb-3">
                             <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${v.status === 'running' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
                                 <i class="fa-solid fa-circle text-[8px] mr-1.5"></i>${v.status.toUpperCase()}
                             </span>
-                            <span class="text-xs font-mono uppercase bg-slate-800 px-2 py-0.5 rounded text-indigo-400">${v.vpsType || 'docker'}</span>
+                            <span class="text-xs font-mono uppercase bg-slate-800 px-2 py-0.5 rounded text-indigo-400 border border-slate-700">
+                                ${v.vpsType === 'qemu' ? 'QEMU / KVM' : 'Docker (Systemd)'}
+                            </span>
                         </div>
+
                         <h3 class="font-bold text-white text-lg mb-1">${v.name}</h3>
                         <p class="text-xs font-mono text-indigo-400 mb-4">${v.ipAddress} &bull; ${v.hostname}</p>
-                        
+
+                        <!-- Hardware Details -->
                         <div class="space-y-2 mb-6 text-xs text-slate-400">
                             <div class="flex justify-between">
-                                <span>OS & Specs:</span>
-                                <span class="text-white font-medium">${v.os} (${v.cpuCores} vCPU / ${v.ramGb}GB / ${v.diskGb}GB)</span>
+                                <span>OS & Architecture:</span>
+                                <span class="text-white font-medium">${v.os}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Dedicated Specs:</span>
+                                <span class="text-white font-medium">${v.cpuCores} vCPU / ${v.ramGb}GB RAM / ${v.diskGb}GB SSD</span>
                             </div>
                             <div class="flex justify-between">
                                 <span>Hypervisor Node:</span>
-                                <span class="text-white font-medium">${v.nodeName}</span>
+                                <span class="text-slate-300 font-medium truncate ml-2 max-w-[170px]" title="${v.nodeName}">${v.nodeName}</span>
                             </div>
                             <div class="flex justify-between">
-                                <span>Systemd / KVM:</span>
-                                <span class="text-emerald-400 font-medium">${v.vpsType === 'qemu' ? (v.kvmEnabled ? 'KVM Enabled' : 'QEMU Standard') : 'Systemd Active'}</span>
+                                <span>Root Access:</span>
+                                <span class="text-emerald-400 font-medium">Enabled (Full TTY)</span>
                             </div>
                         </div>
 
-                        <!-- Telemetry Progress -->
+                        <!-- Progress telemetry -->
                         <div class="space-y-2 mb-6">
                             <div>
                                 <div class="flex justify-between text-[11px] text-slate-400 mb-1">
-                                    <span>RAM Allocation (${v.ramGb} GB Dedicated)</span>
-                                    <span>${v.ramUsage || 38}%</span>
+                                    <span>RAM Usage (${v.ramGb} GB Allocated)</span>
+                                    <span>${v.ramUsage !== undefined ? v.ramUsage : 0}%</span>
                                 </div>
                                 <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
-                                    <div class="h-full bg-indigo-500 rounded-full" style="width: ${v.ramUsage || 38}%"></div>
+                                    <div class="h-full bg-indigo-500 rounded-full" style="width: ${v.ramUsage !== undefined ? v.ramUsage : 0}%"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Actions -->
                     <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between">
-                        <button onclick="openTerminal('${v.id}')" class="px-3 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5">
-                            <i class="fa-solid fa-terminal"></i>
-                            <span>Console</span>
-                        </button>
                         <div class="flex items-center space-x-2">
-                            <button onclick="vpsAction('${v.id}', '${v.status === 'running' ? 'stop' : 'start'}')" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition" title="${v.status === 'running' ? 'Stop' : 'Start'}">
+                            <button onclick="openTerminal('${v.id}')" class="px-3 py-2 bg-indigo-600/15 hover:bg-indigo-600/25 border border-indigo-500/30 text-indigo-400 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5" title="Interactive In-Browser Console">
+                                <i class="fa-solid fa-terminal"></i>
+                                <span>Web Console</span>
+                            </button>
+                            <button onclick="showSshModal('${v.id}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5" title="SSH Command & SSHX Stream">
+                                <i class="fa-solid fa-key text-xs"></i>
+                                <span>SSH / SSHX</span>
+                            </button>
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <button onclick="vpsAction('${v.id}', '${v.status === 'running' ? 'stop' : 'start'}')" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition" title="${v.status === 'running' ? 'Stop Instance' : 'Start Instance'}">
                                 <i class="fa-solid ${v.status === 'running' ? 'fa-stop text-amber-400' : 'fa-play text-emerald-400'} text-xs"></i>
                             </button>
-                            <button onclick="vpsAction('${v.id}', 'restart')" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition" title="Restart">
-                                <i class="fa-solid fa-rotate text-xs text-sky-400"></i>
-                            </button>
-                            <button onclick="deleteVps('${v.id}')" class="p-2 bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 rounded-lg transition" title="Delete">
-                                <i class="fa-solid fa-trash text-xs"></i>
+                            <button onclick="vpsAction('${v.id}', 'restart')" class="p-2 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-lg transition" title="Reboot VPS">
+                                <i class="fa-solid fa-rotate text-xs"></i>
                             </button>
                         </div>
                     </div>
@@ -337,63 +300,32 @@
             `).join('');
         }
 
-        async function handleCreateVps(e) {
-            e.preventDefault();
-            const name = document.getElementById('vpsName').value.trim();
-            const hostname = document.getElementById('vpsHostname').value.trim();
-            const nodeId = document.getElementById('vpsNode').value;
-            const vpsType = document.getElementById('vpsType').value;
-            const os = document.getElementById('vpsOs').value;
-            const rootPass = document.getElementById('vpsPass').value.trim();
-            const cpuCores = parseInt(document.getElementById('vpsCpu').value);
-            const ramGb = parseInt(document.getElementById('vpsRam').value);
-            const diskGb = parseInt(document.getElementById('vpsDisk').value);
-            const kvmEnabled = document.getElementById('kvmEnabled').checked;
-
-            try {
-                const res = await fetch('/api/vps/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: currentUser.id, userName: currentUser.name, name, hostname, nodeId, vpsType, os, rootPass, cpuCores, ramGb, diskGb, kvmEnabled })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    closeCreateModal();
-                    fetchNodesAndVps();
-                } else {
-                    document.getElementById('createError').innerText = data.error || 'Failed to create VPS';
-                    document.getElementById('createError').classList.remove('hidden');
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        }
-
         async function vpsAction(vpsId, action) {
             try {
                 await fetch('/api/vps/action', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vpsId, action })
+                    body: JSON.stringify({ role: currentUser.role, userId: currentUser.id, vpsId, action })
                 });
-                fetchNodesAndVps();
+                fetchUserVps();
             } catch (err) {
                 console.error(err);
             }
         }
 
-        async function deleteVps(vpsId) {
-            if (!confirm("Are you sure you want to terminate this VPS instance? All data will be permanently lost.")) return;
-            try {
-                await fetch('/api/vps/delete', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vpsId })
-                });
-                fetchNodesAndVps();
-            } catch (err) {
-                console.error(err);
-            }
+        function showSshModal(vpsId) {
+            const v = myVpsList.find(x => x.id === vpsId);
+            if (!v) return;
+            document.getElementById('sshModalTitle').innerText = `${v.name} (${v.ipAddress})`;
+            document.getElementById('sshCommandInput').value = v.sshCommand || `ssh root@${v.ipAddress} -p 22`;
+            document.getElementById('sshxUrlInput').value = v.sshxUrl || `https://sshx.io/s/${v.id}`;
+            document.getElementById('sshxOpenLink').href = v.sshxUrl || `https://sshx.io/s/${v.id}`;
+            document.getElementById('sshPassInput').value = v.rootPass || 'root#Nexus99!';
+            document.getElementById('sshModal').classList.remove('hidden');
+        }
+
+        function closeSshModal() {
+            document.getElementById('sshModal').classList.add('hidden');
         }
 
         function openTerminal(vpsId) {

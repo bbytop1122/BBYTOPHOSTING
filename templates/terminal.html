@@ -3,159 +3,554 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Terminal Console - CloudVPS Enterprise</title>
+    <title>Realtime Web Terminal & Shell - Cloud VPS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- xterm.js (Authentic Real-Time ANSI Terminal Emulator) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .xterm {
+            padding: 12px 16px;
+            height: 100%;
+        }
+        .xterm-viewport::-webkit-scrollbar { width: 6px; }
+        .xterm-viewport::-webkit-scrollbar-track { background: #020617; }
+        .xterm-viewport::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
     </style>
 </head>
 <body class="h-full text-slate-100 flex flex-col bg-slate-950 selection:bg-indigo-500 selection:text-white">
     <!-- Navbar -->
-    <header class="w-full border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
+    <header class="w-full border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
             <div class="flex items-center space-x-4">
-                <button onclick="goBack()" class="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300 hover:text-white transition">
+                <button onclick="goBack()" class="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300 hover:text-white transition" title="Back to Dashboard">
                     <i class="fa-solid fa-arrow-left"></i>
                 </button>
                 <div>
-                    <h1 id="terminalTitle" class="font-bold text-lg tracking-tight text-white">Connecting to VPS...</h1>
-                    <p id="terminalSub" class="text-xs text-slate-400 font-mono">Initializing SSH Stream</p>
+                    <div class="flex items-center space-x-2">
+                        <h1 id="terminalTitle" class="font-bold text-lg tracking-tight text-white">Interactive Terminal</h1>
+                        <span id="powerBadge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
+                            <span id="powerStatusText">ONLINE</span>
+                        </span>
+                    </div>
+                    <p id="terminalSub" class="text-xs text-slate-400 font-mono">Real-time PTY Shell &bull; Direct Linux Execution</p>
                 </div>
             </div>
+
+            <!-- Target Instance Switcher & Actions -->
             <div class="flex items-center space-x-3">
-                <span class="inline-flex items-center px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
-                    <i class="fa-solid fa-circle text-[8px] mr-1.5 animate-pulse"></i>SSH Online
-                </span>
+                <div class="hidden md:flex items-center space-x-2">
+                    <span class="text-xs text-slate-400">Target:</span>
+                    <select id="instanceSelect" onchange="switchTargetInstance()" class="bg-slate-900 text-xs text-slate-200 border border-slate-800 rounded-xl px-3 py-1.5 focus:outline-none focus:border-indigo-500">
+                        <option value="">Loading instances...</option>
+                    </select>
+                </div>
+
+                <button id="powerActionBtn" onclick="togglePowerState()" class="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold transition">
+                    <i class="fa-solid fa-power-off text-rose-400"></i>
+                    <span id="powerActionLabel">Power</span>
+                </button>
+
+                <a id="sshxExternalLink" href="#" target="_blank" class="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-semibold hover:bg-indigo-500/20 transition">
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                    <span>SSHX Session</span>
+                </a>
             </div>
         </div>
     </header>
 
+    <!-- Quick Info Bar -->
+    <div class="max-w-6xl w-full mx-auto px-6 pt-4">
+        <div class="p-3 bg-slate-900/60 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div class="flex items-center space-x-4 font-mono text-slate-400">
+                <span>Node: <strong id="barNode" class="text-white">Local Node</strong></span>
+                <span>OS: <strong id="barOs" class="text-indigo-400">Linux</strong></span>
+                <span>IP: <strong id="barIp" class="text-emerald-400">127.0.0.1</strong></span>
+                <span>Directory: <strong id="barCwd" class="text-sky-400 font-mono">~</strong></span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-slate-400 font-mono">SSH:</span>
+                <input id="quickSshCmd" readonly class="bg-slate-950 px-2 py-1 rounded border border-slate-800 font-mono text-slate-300 text-[11px] w-48 sm:w-56 select-all focus:outline-none">
+                <button onclick="copySsh()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-[11px] font-semibold transition"><i class="fa-solid fa-copy mr-1"></i>Copy</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Terminal Box -->
-    <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-8 flex flex-col">
-        <div class="flex-1 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col font-mono text-xs">
-            <!-- Terminal Header Bar -->
-            <div class="bg-slate-950/80 px-4 py-3 border-b border-slate-800 flex items-center justify-between text-slate-400">
+    <main class="flex-1 max-w-6xl w-full mx-auto px-6 py-4 flex flex-col min-h-0">
+        <div class="flex-1 bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col font-mono text-xs">
+            <!-- Terminal Header Bar & Quick Command Chips -->
+            <div class="bg-slate-900/90 px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 text-slate-400">
                 <div class="flex items-center space-x-2">
                     <div class="w-3 h-3 rounded-full bg-rose-500/80"></div>
                     <div class="w-3 h-3 rounded-full bg-amber-500/80"></div>
                     <div class="w-3 h-3 rounded-full bg-emerald-500/80"></div>
-                    <span id="terminalHostname" class="ml-3 text-slate-300">root@cloudvps:~#</span>
+                    <span id="terminalHostnamePrompt" class="ml-3 text-slate-300 font-semibold font-mono">root@vps:~#</span>
                 </div>
-                <button onclick="clearTerminal()" class="hover:text-white transition text-xs"><i class="fa-solid fa-trash mr-1"></i> Clear</button>
+                <!-- Real-time Quick Commands -->
+                <div class="flex items-center space-x-2 flex-wrap">
+                    <span class="text-[10px] text-slate-500 uppercase tracking-wider hidden lg:inline mr-1">Quick Run:</span>
+                    <button onclick="runDirectCmd('uname -a')" class="px-2 py-1 bg-slate-800/80 hover:bg-slate-800 hover:text-indigo-400 text-slate-300 rounded text-[11px] transition">uname -a</button>
+                    <button onclick="runDirectCmd('uptime')" class="px-2 py-1 bg-slate-800/80 hover:bg-slate-800 hover:text-indigo-400 text-slate-300 rounded text-[11px] transition">uptime</button>
+                    <button onclick="runDirectCmd('df -h')" class="px-2 py-1 bg-slate-800/80 hover:bg-slate-800 hover:text-indigo-400 text-slate-300 rounded text-[11px] transition">df -h</button>
+                    <button onclick="runDirectCmd('free -m')" class="px-2 py-1 bg-slate-800/80 hover:bg-slate-800 hover:text-indigo-400 text-slate-300 rounded text-[11px] transition">free -m</button>
+                    <button onclick="runDirectCmd('ps aux')" class="px-2 py-1 bg-slate-800/80 hover:bg-slate-800 hover:text-indigo-400 text-slate-300 rounded text-[11px] transition">ps aux</button>
+                    <button onclick="runDirectCmd('ls -la')" class="px-2 py-1 bg-slate-800/80 hover:bg-slate-800 hover:text-indigo-400 text-slate-300 rounded text-[11px] transition">ls -la</button>
+                    <button onclick="clearTerm()" class="px-2 py-1 bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white rounded text-[11px] transition ml-1" title="Clear Terminal (Ctrl+L)"><i class="fa-solid fa-trash mr-1"></i>Clear</button>
+                </div>
             </div>
 
-            <!-- Terminal Output Area -->
-            <div id="terminalOutput" class="flex-1 p-6 overflow-y-auto space-y-3 text-emerald-400 selection:bg-emerald-500 selection:text-slate-950">
-                <div>Welcome to CloudVPS Secure Shell (x86_64-pc-linux-gnu).</div>
-                <div>Type <span class="text-amber-400 font-bold">help</span> to view available commands (e.g. htop, uname, df, docker, reboot).</div>
-                <div class="text-slate-500">------------------------------------------------------------</div>
-            </div>
+            <!-- xterm.js Canvas Container -->
+            <div id="terminalContainer" class="flex-1 w-full bg-slate-950 overflow-hidden relative min-h-[360px]"></div>
 
-            <!-- Terminal Input Prompt -->
-            <div class="p-4 bg-slate-950/90 border-t border-slate-800 flex items-center space-x-3">
-                <span id="promptUser" class="text-indigo-400 font-semibold">root@vps:~#</span>
-                <input type="text" id="terminalInput" autofocus class="flex-1 bg-transparent text-white focus:outline-none font-mono text-xs" placeholder="Type a command...">
-                <button onclick="submitCommand()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition">Execute</button>
+            <!-- Interactive Terminal Prompt Input Bar (Synchronized with xterm) -->
+            <div class="p-3 bg-slate-900/90 border-t border-slate-800 flex items-center space-x-3">
+                <span id="inputPromptLabel" class="text-indigo-400 font-bold font-mono text-xs whitespace-nowrap">root@vps:~#</span>
+                <input type="text" id="terminalInput" autofocus autocomplete="off" spellcheck="false" class="flex-1 bg-transparent text-white focus:outline-none font-mono text-xs placeholder:text-slate-600" placeholder="Type Linux command (e.g. uname -a, ls -la, python3, df -h, pwd, cd /tmp)...">
+                <button onclick="submitInputCommand()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center space-x-1.5">
+                    <span>Execute</span>
+                    <i class="fa-solid fa-arrow-turn-down text-[10px]"></i>
+                </button>
             </div>
         </div>
     </main>
 
     <!-- Footer -->
-    <footer class="w-full border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
-        Secure WebSocket / HTTPS TTY Console &bull; End-to-End Encrypted
+    <footer class="w-full border-t border-slate-800/80 py-3 text-center text-xs text-slate-500">
+        Real-Time PTY Shell &bull; Direct Subprocess Execution &bull; Zero Simulated Responses
     </footer>
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
-        const vpsId = urlParams.get('vpsId') || 'vps_101';
+        let currentVpsId = urlParams.get('vpsId') || null;
+        let currentNodeId = urlParams.get('nodeId') || null;
+
+        let currentUser = null;
+        try {
+            currentUser = JSON.parse(localStorage.getItem('cloud_vps_user') || 'null');
+        } catch (e) {}
 
         let currentVps = null;
+        let allAccessibleVps = [];
+        let currentCwd = "~";
+        let commandHistory = [];
+        let historyIndex = -1;
+        let isExecuting = false;
 
-        async function initTerminal() {
-            try {
-                const res = await fetch(`/api/vps/detail?id=${vpsId}`);
-                const data = await res.json();
-                if (data.success && data.vps) {
-                    currentVps = data.vps;
-                    document.getElementById('terminalTitle').innerText = `${currentVps.name} (${currentVps.ipAddress})`;
-                    document.getElementById('terminalSub').innerText = `Node: ${currentVps.nodeName} | OS: ${currentVps.os}`;
-                    document.getElementById('terminalHostname').innerText = `root@${currentVps.hostname}:~#`;
-                    document.getElementById('promptUser').innerText = `root@${currentVps.hostname}:~#`;
+        // Initialize xterm.js
+        const term = new Terminal({
+            cursorBlink: true,
+            cursorStyle: 'block',
+            fontSize: 13,
+            lineHeight: 1.35,
+            fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+            theme: {
+                background: '#020617', // slate-950
+                foreground: '#f8fafc',
+                cursor: '#6366f1',
+                selectionBackground: 'rgba(99, 102, 241, 0.4)',
+                black: '#0f172a',
+                red: '#f43f5e',
+                green: '#10b981',
+                yellow: '#f59e0b',
+                blue: '#3b82f6',
+                magenta: '#a855f7',
+                cyan: '#06b6d4',
+                white: '#f8fafc',
+                brightBlack: '#475569',
+                brightRed: '#fb7185',
+                brightGreen: '#34d399',
+                brightYellow: '#fbbf24',
+                brightBlue: '#818cf8',
+                brightMagenta: '#c084fc',
+                brightCyan: '#38bdf8',
+                brightWhite: '#ffffff'
+            },
+            convertEol: true,
+            scrollback: 5000
+        });
+
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+
+        const termContainer = document.getElementById('terminalContainer');
+        term.open(termContainer);
+        fitAddon.fit();
+        window.addEventListener('resize', () => fitAddon.fit());
+
+        // Keyboard navigation inside xterm
+        let termInputBuffer = "";
+
+        term.onKey(e => {
+            const ev = e.domEvent;
+            const printable = !ev.altKey && !ev.ctrlKey && !ev.metaKey;
+
+            if (ev.keyCode === 13) { // Enter
+                const cmd = termInputBuffer.trim();
+                term.write('\r\n');
+                termInputBuffer = "";
+                if (cmd) {
+                    executeCommand(cmd);
+                } else {
+                    printPrompt();
                 }
-            } catch (err) {
-                console.error("Failed to load vps detail", err);
+            } else if (ev.keyCode === 8) { // Backspace
+                if (termInputBuffer.length > 0) {
+                    termInputBuffer = termInputBuffer.slice(0, -1);
+                    term.write('\b \b');
+                }
+            } else if (ev.keyCode === 38) { // Up arrow (History)
+                if (commandHistory.length > 0 && historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    const prevCmd = commandHistory[commandHistory.length - 1 - historyIndex];
+                    while (termInputBuffer.length > 0) {
+                        term.write('\b \b');
+                        termInputBuffer = termInputBuffer.slice(0, -1);
+                    }
+                    termInputBuffer = prevCmd;
+                    term.write(prevCmd);
+                }
+            } else if (ev.keyCode === 40) { // Down arrow
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    const nextCmd = commandHistory[commandHistory.length - 1 - historyIndex];
+                    while (termInputBuffer.length > 0) {
+                        term.write('\b \b');
+                        termInputBuffer = termInputBuffer.slice(0, -1);
+                    }
+                    termInputBuffer = nextCmd;
+                    term.write(nextCmd);
+                } else if (historyIndex === 0) {
+                    historyIndex = -1;
+                    while (termInputBuffer.length > 0) {
+                        term.write('\b \b');
+                        termInputBuffer = termInputBuffer.slice(0, -1);
+                    }
+                }
+            } else if (ev.keyCode === 67 && ev.ctrlKey) { // Ctrl+C
+                term.write('^C\r\n');
+                termInputBuffer = "";
+                historyIndex = -1;
+                printPrompt();
+            } else if (ev.keyCode === 76 && ev.ctrlKey) { // Ctrl+L
+                clearTerm();
+            } else if (printable) {
+                termInputBuffer += e.key;
+                term.write(e.key);
+            }
+        });
+
+        function printPrompt() {
+            const host = currentVps ? currentVps.hostname : (currentNodeId ? 'hypervisor-host' : 'localhost');
+            const promptStr = `\x1b[1;32mroot@${host}\x1b[0m:\x1b[1;34m${currentCwd}\x1b[0m# `;
+            term.write(promptStr);
+            const plainPrompt = `root@${host}:${currentCwd}#`;
+            document.getElementById('terminalHostnamePrompt').innerText = plainPrompt;
+            document.getElementById('inputPromptLabel').innerText = plainPrompt;
+        }
+
+        function clearTerm() {
+            term.clear();
+            printPrompt();
+        }
+
+        async function initPage() {
+            term.writeln('\x1b[1;36m=== Cloud VPS Real-Time Web Shell ===\x1b[0m');
+            term.writeln('\x1b[90mDirect terminal connection to Linux kernel environment via subprocess PTY stream.\x1b[0m');
+            term.writeln('\x1b[90mZero simulations - all outputs executed directly on the host or assigned container.\x1b[0m\r\n');
+
+            // Fetch instances to populate switcher
+            await loadAccessibleInstances();
+
+            if (!currentVpsId && allAccessibleVps.length > 0) {
+                currentVpsId = allAccessibleVps[0].id;
+            }
+
+            if (currentVpsId) {
+                await loadVpsDetails(currentVpsId);
+            } else if (currentUser && currentUser.role === 'admin') {
+                // Admin direct host terminal
+                setupHostNodeTerminal();
+            } else {
+                term.writeln('\x1b[33mNo VPS instances found for this user account. Create or assign an instance in your dashboard.\x1b[0m');
+                printPrompt();
             }
         }
 
-        initTerminal();
+        async function loadAccessibleInstances() {
+            try {
+                const role = currentUser ? currentUser.role : 'user';
+                const uId = currentUser ? currentUser.id : '';
+                const res = await fetch(`/api/vps?role=${role}&userId=${uId}`);
+                const data = await res.json();
+                if (data.success && data.vpsList) {
+                    allAccessibleVps = data.vpsList;
+                    const select = document.getElementById('instanceSelect');
+                    select.innerHTML = '';
+
+                    if (currentUser && currentUser.role === 'admin') {
+                        const hostOpt = document.createElement('option');
+                        hostOpt.value = 'node_local_1';
+                        hostOpt.innerText = '⚡ Local Hypervisor Host Node';
+                        select.appendChild(hostOpt);
+                    }
+
+                    allAccessibleVps.forEach(v => {
+                        const opt = document.createElement('option');
+                        opt.value = v.id;
+                        opt.innerText = `${v.name} (${v.hostname} - ${v.status.toUpperCase()})`;
+                        if (v.id === currentVpsId) opt.selected = true;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.error("Failed loading instances", e);
+            }
+        }
+
+        async function loadVpsDetails(id) {
+            try {
+                const res = await fetch(`/api/vps/detail?id=${id}`);
+                const data = await res.json();
+                if (data.success && data.vps) {
+                    currentVps = data.vps;
+                    currentNodeId = null;
+
+                    document.getElementById('terminalTitle').innerText = `${currentVps.name} (${currentVps.hostname})`;
+                    document.getElementById('terminalSub').innerText = `Node: ${currentVps.nodeName} | ${currentVps.vpsType.toUpperCase()} | Dedicated ${currentVps.ramGb}GB RAM | ${currentVps.cpuCores} vCPU`;
+                    document.getElementById('barNode').innerText = currentVps.nodeName;
+                    document.getElementById('barOs').innerText = currentVps.os;
+                    document.getElementById('barIp').innerText = currentVps.ipAddress;
+                    document.getElementById('quickSshCmd').value = currentVps.sshCommand || `ssh root@${currentVps.ipAddress} -p 22`;
+
+                    const sshxUrl = currentVps.sshxUrl || `https://sshx.io/s/${currentVps.id}`;
+                    document.getElementById('sshxExternalLink').href = sshxUrl;
+
+                    updatePowerUI(currentVps.status);
+                    term.writeln(`\x1b[32m[SESSION ESTABLISHED]\x1b[0m Connected to instance \x1b[1m${currentVps.name}\x1b[0m (\x1b[36m${currentVps.hostname}\x1b[0m)`);
+                    term.writeln(`\x1b[90mWorkspace path: /data/vps_workspaces/${currentVps.id}/root\x1b[0m\r\n`);
+                    printPrompt();
+                } else {
+                    setupHostNodeTerminal();
+                }
+            } catch (err) {
+                console.error("VPS detail load failed", err);
+                setupHostNodeTerminal();
+            }
+        }
+
+        function setupHostNodeTerminal() {
+            currentVps = null;
+            currentNodeId = 'node_local_1';
+            document.getElementById('terminalTitle').innerText = "Local Hypervisor Host Shell";
+            document.getElementById('terminalSub').innerText = "Direct Node Terminal &bull; Master Administrator Access";
+            document.getElementById('barNode').innerText = "Local Hypervisor Node";
+            document.getElementById('barOs').innerText = "Host Linux Environment";
+            document.getElementById('barIp').innerText = "127.0.0.1";
+            document.getElementById('quickSshCmd').value = "ssh root@127.0.0.1 -p 22";
+            updatePowerUI('running');
+            term.writeln('\x1b[35m[HYPERVISOR HOST SHELL]\x1b[0m Direct access to local node execution container.\r\n');
+            printPrompt();
+        }
+
+        function updatePowerUI(status) {
+            const badge = document.getElementById('powerBadge');
+            const text = document.getElementById('powerStatusText');
+            const btn = document.getElementById('powerActionBtn');
+            const label = document.getElementById('powerActionLabel');
+
+            if (status === 'running') {
+                badge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                text.innerText = "ONLINE";
+                label.innerText = "Power Off";
+                btn.className = "inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-semibold transition";
+            } else {
+                badge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20";
+                text.innerText = "STOPPED";
+                label.innerText = "Power On";
+                btn.className = "inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-semibold transition";
+            }
+        }
+
+        async function togglePowerState() {
+            if (!currentVps) return;
+            const action = currentVps.status === 'running' ? 'stop' : 'start';
+            term.writeln(`\r\n\x1b[33mSending signal: ${action.toUpperCase()} instance ${currentVps.hostname}...\x1b[0m`);
+
+            try {
+                const res = await fetch('/api/vps/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        vpsId: currentVps.id,
+                        action: action,
+                        userId: currentUser ? currentUser.id : null,
+                        role: currentUser ? currentUser.role : 'user'
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentVps.status = data.status;
+                    updatePowerUI(data.status);
+                    term.writeln(`\x1b[32mInstance state updated: ${data.status.toUpperCase()}\x1b[0m\r\n`);
+                } else {
+                    term.writeln(`\x1b[31mAction failed: ${data.error || 'Unknown error'}\x1b[0m\r\n`);
+                }
+            } catch (err) {
+                term.writeln(`\x1b[31mRequest failed: ${err.message}\x1b[0m\r\n`);
+            }
+            printPrompt();
+        }
+
+        function switchTargetInstance() {
+            const select = document.getElementById('instanceSelect');
+            const target = select.value;
+            if (target === 'node_local_1') {
+                window.location.href = '/terminal?nodeId=node_local_1';
+            } else if (target) {
+                window.location.href = `/terminal?vpsId=${target}`;
+            }
+        }
+
+        // Real-Time Command Execution Engine (with Server-Sent Events Streaming)
+        async function executeCommand(cmd) {
+            if (!cmd) return;
+            if (isExecuting) return;
+
+            // Push to history
+            commandHistory.push(cmd);
+            historyIndex = -1;
+
+            // Check if instance is stopped
+            if (currentVps && currentVps.status === 'stopped') {
+                term.writeln(`\x1b[31m[ERROR] Instance '${currentVps.hostname}' is currently STOPPED.\x1b[0m`);
+                term.writeln(`\x1b[33mClick 'Power On' in the header to boot your virtual machine before running commands.\x1b[0m\r\n`);
+                printPrompt();
+                return;
+            }
+
+            isExecuting = true;
+            const targetId = currentVps ? currentVps.id : 'node_local_1';
+            const role = currentUser ? currentUser.role : 'user';
+            const uId = currentUser ? currentUser.id : '';
+
+            // Try real-time streaming endpoint first
+            let streamSupported = true;
+            try {
+                const streamUrl = `/api/terminal/stream?vpsId=${encodeURIComponent(targetId)}&command=${encodeURIComponent(cmd)}&userId=${encodeURIComponent(uId)}&role=${encodeURIComponent(role)}`;
+                const evtSource = new EventSource(streamUrl);
+
+                evtSource.onmessage = function(event) {
+                    try {
+                        const payload = JSON.parse(event.data);
+                        if (payload.type === 'stdout') {
+                            // Convert standard \n to terminal \r\n
+                            const formatted = payload.text.replace(/\r?\n/g, '\r\n');
+                            term.write(formatted);
+                        } else if (payload.type === 'exit') {
+                            if (payload.cwd) {
+                                currentCwd = payload.cwd;
+                                document.getElementById('barCwd').innerText = currentCwd;
+                            }
+                            evtSource.close();
+                            isExecuting = false;
+                            printPrompt();
+                        }
+                    } catch (pe) {
+                        term.write(event.data.replace(/\r?\n/g, '\r\n'));
+                    }
+                };
+
+                evtSource.onerror = function(err) {
+                    evtSource.close();
+                    // Fallback to standard POST execution
+                    fallbackPostExecution(targetId, cmd, uId, role);
+                };
+            } catch (ex) {
+                fallbackPostExecution(targetId, cmd, uId, role);
+            }
+        }
+
+        async function fallbackPostExecution(vpsId, cmd, userId, role) {
+            try {
+                const res = await fetch('/api/vps/exec', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        vpsId: vpsId,
+                        command: cmd,
+                        userId: userId,
+                        role: role
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (data.output) {
+                        term.write(data.output.replace(/\r?\n/g, '\r\n'));
+                    }
+                    if (data.cwd) {
+                        currentCwd = data.cwd;
+                        document.getElementById('barCwd').innerText = currentCwd;
+                    }
+                } else {
+                    term.writeln(`\x1b[31mExecution Error: ${data.error || 'Failed'}\x1b[0m`);
+                }
+            } catch (err) {
+                term.writeln(`\x1b[31mNetwork Error: ${err.message}\x1b[0m`);
+            } finally {
+                isExecuting = false;
+                printPrompt();
+            }
+        }
+
+        function runDirectCmd(cmd) {
+            term.write(cmd + '\r\n');
+            executeCommand(cmd);
+        }
+
+        function submitInputCommand() {
+            const input = document.getElementById('terminalInput');
+            const cmd = input.value.trim();
+            if (!cmd) return;
+            input.value = '';
+            term.write(cmd + '\r\n');
+            executeCommand(cmd);
+        }
 
         const inputField = document.getElementById('terminalInput');
         inputField.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
-                submitCommand();
+                submitInputCommand();
             }
         });
 
-        function clearTerminal() {
-            document.getElementById('terminalOutput').innerHTML = `
-                <div class="text-slate-500">Terminal cleared.</div>
-            `;
-        }
-
-        async function submitCommand() {
-            const cmd = inputField.value.trim();
-            if (!cmd) return;
-
-            const output = document.getElementById('terminalOutput');
-            output.innerHTML += `
-                <div class="text-white"><span class="text-indigo-400">${document.getElementById('promptUser').innerText}</span> ${escapeHtml(cmd)}</div>
-            `;
-            inputField.value = '';
-
-            let responseText = '';
-            const c = cmd.toLowerCase();
-
-            if (c === 'help') {
-                responseText = `Available commands:\n  uname -a     Show kernel version\n  htop         Display CPU & RAM usage\n  df -h        Show disk space utilization\n  uptime       Show system uptime\n  docker ps    List active container runtimes\n  reboot       Restart VPS instance\n  clear        Clear terminal screen\n  whoami       Show current logged in user`;
-            } else if (c === 'uname -a' || c === 'uname') {
-                responseText = `Linux ${currentVps ? currentVps.hostname : 'cloud-vps'} 6.5.0-28-generic #29-Ubuntu SMP PREO__RT x86_64 GNU/Linux`;
-            } else if (c === 'htop') {
-                responseText = `Tasks: 42 total, 1 running, 41 sleeping. CPU: ${currentVps ? currentVps.cpuUsage : 15}% usr. Mem: 2.1G/8.0G used.`;
-            } else if (c === 'df -h' || c === 'df') {
-                responseText = `Filesystem      Size  Used Avail Use% Mounted on\n/dev/root       100G   24G   76G  25% /\ntmpfs           4.0G     0  4.0G   0% /dev/shm`;
-            } else if (c === 'uptime') {
-                responseText = ` 18:42:15 up 42 days,  3:12,  2 users,  load average: 0.12, 0.22, 0.28`;
-            } else if (c === 'docker ps' || c === 'docker') {
-                responseText = `CONTAINER ID   IMAGE          COMMAND                  CREATED         STATUS         PORTS\n49a82b1f7c9e   redis:latest   "docker-entrypoint.s…"   2 days ago      Up 2 days      0.0.0.0:6379->6379/tcp`;
-            } else if (c === 'reboot') {
-                responseText = `Broadcast message from root@${currentVps ? currentVps.hostname : 'vps'}:\nThe system is going down for reboot NOW!`;
-            } else if (c === 'whoami') {
-                responseText = `root`;
-            } else if (c === 'clear') {
-                clearTerminal();
-                return;
-            } else {
-                responseText = `bash: ${cmd}: command not found. Type 'help' for available commands.`;
-            }
-
-            output.innerHTML += `
-                <div class="text-emerald-400 whitespace-pre-line">${escapeHtml(responseText)}</div>
-            `;
-            output.scrollTop = output.scrollHeight;
-        }
-
-        function escapeHtml(str) {
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        function copySsh() {
+            const el = document.getElementById('quickSshCmd');
+            el.select();
+            navigator.clipboard.writeText(el.value);
+            term.writeln('\r\n\x1b[32m[COPIED]\x1b[0m SSH connection command copied to clipboard.\r\n');
+            printPrompt();
         }
 
         function goBack() {
-            window.location.href = '/dashboard';
+            if (currentUser && currentUser.role === 'admin') {
+                window.location.href = '/admin';
+            } else {
+                window.location.href = '/dashboard';
+            }
         }
+
+        initPage();
     </script>
 </body>
 </html>

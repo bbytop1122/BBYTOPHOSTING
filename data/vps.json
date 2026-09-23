@@ -1,0 +1,26 @@
+[
+  {
+    "id": "vps_15269",
+    "name": "Primary Production Node",
+    "hostname": "prod-web-01",
+    "nodeId": "node_local_1",
+    "nodeName": "Local Hypervisor Node (localhost)",
+    "userId": "u_2",
+    "userName": "Alex Developer",
+    "vpsType": "qemu",
+    "os": "ubuntu-22.04",
+    "cpuCores": 4,
+    "ramGb": 8,
+    "diskGb": 100,
+    "status": "running",
+    "ipAddress": "127.0.0.1",
+    "rootPass": "root#Production123!",
+    "kvmEnabled": true,
+    "sshxUrl": "https://sshx.io/s/vps_15269_prod-w",
+    "sshCommand": "ssh root@127.0.0.1 -p 22",
+    "cpuUsage": 0.0,
+    "ramUsage": 3.2,
+    "diskUsageMb": 1.5,
+    "createdAt": 1790086415
+  }
+]

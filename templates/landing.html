@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexusVPS Enterprise - High-Performance Cloud & KVM Virtualization</title>
+    <title>Cloud VPS Manager - High-Performance Cloud & KVM Virtualization</title>
+    <meta name="description" content="Professional multi-node VPS management platform in Python with QEMU, Docker, OS templates, live node health, terminal access, and python node agent.">
+    <meta property="og:title" content="Cloud VPS Manager">
+    <meta property="og:description" content="Professional multi-node VPS management platform in Python with QEMU, Docker, OS templates, live node health, terminal access, and python node agent.">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -150,9 +153,15 @@
                 <span id="authToggleText">Don't have an account?</span>
                 <button onclick="toggleAuthMode()" id="authToggleBtn" class="text-indigo-400 font-semibold ml-1 hover:underline">Sign up</button>
             </div>
-            <div class="mt-4 p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl text-xs text-slate-400 flex items-center justify-between">
-                <span>Demo Admin: admin@cloudvps.com</span>
-                <button onclick="fillDemo('admin')" class="text-indigo-400 font-medium hover:underline">Fill Admin</button>
+            <div class="mt-4 space-y-2">
+                <div class="p-2.5 bg-slate-950/60 border border-slate-800/80 rounded-xl text-xs text-slate-400 flex items-center justify-between">
+                    <span>Demo Admin: <strong class="text-white">admin@cloudvps.com</strong></span>
+                    <button onclick="fillDemo('admin')" class="text-indigo-400 font-semibold hover:underline">Use Admin</button>
+                </div>
+                <div class="p-2.5 bg-slate-950/60 border border-slate-800/80 rounded-xl text-xs text-slate-400 flex items-center justify-between">
+                    <span>Demo User: <strong class="text-white">user@cloudvps.com</strong></span>
+                    <button onclick="fillDemo('user')" class="text-indigo-400 font-semibold hover:underline">Use User</button>
+                </div>
             </div>
         </div>
     </div>
@@ -212,6 +221,9 @@
             if (type === 'admin') {
                 document.getElementById('authEmail').value = "admin@cloudvps.com";
                 document.getElementById('authPassword').value = "admin123";
+            } else if (type === 'user') {
+                document.getElementById('authEmail').value = "user@cloudvps.com";
+                document.getElementById('authPassword').value = "user123";
             }
         }
 
