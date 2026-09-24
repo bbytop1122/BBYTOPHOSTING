@@ -318,43 +318,70 @@
             <button onclick="closeSshModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white transition">
                 <i class="fa-solid fa-xmark text-lg"></i>
             </button>
-            <h3 class="text-xl font-bold text-white mb-1" id="sshModalTitle">SSH & Pinggy.io Connection</h3>
-            <p class="text-xs text-slate-400 mb-6">Use these credentials to connect to your virtual machine.</p>
-
-            <div class="space-y-4">
+            <div class="flex items-center space-x-3 mb-2">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <i class="fa-solid fa-satellite-dish text-lg"></i>
+                </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Standard SSH Command</label>
+                    <h3 class="text-xl font-bold text-white mb-0.5" id="sshModalTitle">SSH & Pinggy.io Connection</h3>
+                    <p class="text-xs text-slate-400">Direct root access credentials and dynamic Pinggy.io reverse tunnel.</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 mt-6">
+                <!-- Pinggy Live Tunnel Section -->
+                <div class="p-4 rounded-xl bg-slate-950/80 border border-emerald-500/30">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-xs font-semibold text-emerald-400 uppercase tracking-wider">Pinggy.io Live SSH Command</label>
+                        <span id="adminPinggyStatusBadge" class="inline-flex items-center text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                            <i class="fa-solid fa-spinner fa-spin mr-1"></i>Contacting Node...
+                        </span>
+                    </div>
                     <div class="flex items-center space-x-2">
-                        <input type="text" id="sshCommandInput" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-indigo-300 font-mono text-xs focus:outline-none">
-                        <button onclick="copyToClipboard('sshCommandInput')" class="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">
+                        <input type="text" id="pinggyCmdInput" readonly value="Connecting to node..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-emerald-300 font-mono text-xs focus:outline-none select-all">
+                        <button onclick="copyToClipboard('pinggyCmdInput')" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-emerald-900/30">
+                            <i class="fa-solid fa-copy"></i>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between mt-2 text-[11px] text-slate-400">
+                        <span>Direct SSH access command through Pinggy.io TCP tunnel.</span>
+                        <button onclick="regenerateAdminPinggyTunnel()" class="text-emerald-400 hover:text-emerald-300 transition flex items-center space-x-1 font-medium text-[11px]">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                            <span>Refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Direct IP SSH -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Direct Public IP Connection (Port 22)</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="sshCommandInput" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-indigo-300 font-mono text-xs focus:outline-none select-all">
+                        <button onclick="copyToClipboard('sshCommandInput')" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">
                             <i class="fa-solid fa-copy"></i>
                         </button>
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Pinggy.io Reverse SSH Command</label>
-                    <div class="flex items-center space-x-2">
-                        <input type="text" id="pinggyCmdInput" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-emerald-300 font-mono text-xs focus:outline-none">
-                        <button onclick="copyToClipboard('pinggyCmdInput')" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition">
-                            <i class="fa-solid fa-copy"></i>
-                        </button>
-                    </div>
-                </div>
-
+                <!-- Root Password -->
                 <div>
                     <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Root Password</label>
                     <div class="flex items-center space-x-2">
-                        <input type="text" id="sshPassInput" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-300 font-mono text-xs focus:outline-none">
-                        <button onclick="copyToClipboard('sshPassInput')" class="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">
+                        <input type="text" id="sshPassInput" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-300 font-mono text-xs focus:outline-none select-all">
+                        <button onclick="copyToClipboard('sshPassInput')" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">
                             <i class="fa-solid fa-copy"></i>
                         </button>
                     </div>
                 </div>
             </div>
 
+            <div id="adminCopyToast" class="hidden mt-3 p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-lg text-center font-medium">
+                <i class="fa-solid fa-check mr-1.5"></i>Copied to clipboard!
+            </div>
+
             <div class="mt-6 pt-4 border-t border-slate-800 flex justify-end">
-                <button onclick="closeSshModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">Close</button>
+                <button onclick="closeSshModal()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">Close</button>
             </div>
         </div>
     </div>
@@ -395,9 +422,14 @@
 
         function copyToClipboard(id) {
             const el = document.getElementById(id);
+            if (!el) return;
             el.select();
             navigator.clipboard.writeText(el.value);
-            alert("Copied to clipboard!");
+            const toast = document.getElementById('adminCopyToast');
+            if (toast) {
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 2500);
+            }
         }
 
         function openAddNodeModal() {
@@ -775,14 +807,58 @@
             }
         }
 
-        function showSshDetails(vpsId) {
+        let activeAdminModalVpsId = null;
+
+        async function showSshDetails(vpsId) {
+            activeAdminModalVpsId = vpsId;
             const v = clusterVps.find(x => x.id === vpsId);
             if (!v) return;
             document.getElementById('sshModalTitle').innerText = `${v.name} (${v.ipAddress})`;
             document.getElementById('sshCommandInput').value = v.sshCommand || `ssh root@${v.ipAddress} -p 22`;
-            document.getElementById('pinggyCmdInput').value = v.pinggyCommand || "ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io";
             document.getElementById('sshPassInput').value = v.rootPass || 'root#Nexus99!';
+            document.getElementById('pinggyCmdInput').value = v.pinggyCommand || 'Initializing reverse tunnel...';
+            document.getElementById('adminPinggyStatusBadge').innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Contacting Node...';
             document.getElementById('sshModal').classList.remove('hidden');
+
+            try {
+                const res = await fetch('/api/vps/pinggy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vpsId })
+                });
+                const data = await res.json();
+                if (data.success && data.ssh_command) {
+                    document.getElementById('pinggyCmdInput').value = data.ssh_command;
+                    v.pinggyCommand = data.ssh_command;
+                    document.getElementById('adminPinggyStatusBadge').innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>Live Tunnel Active';
+                    if (data.root_pass) document.getElementById('sshPassInput').value = data.root_pass;
+                } else {
+                    document.getElementById('adminPinggyStatusBadge').innerHTML = '<span class="text-amber-400">Tunnel Fallback</span>';
+                }
+            } catch (err) {
+                console.error("Pinggy generation error:", err);
+                document.getElementById('adminPinggyStatusBadge').innerHTML = '<span class="text-amber-400">Direct SSH Ready</span>';
+            }
+        }
+
+        async function regenerateAdminPinggyTunnel() {
+            if (!activeAdminModalVpsId) return;
+            document.getElementById('adminPinggyStatusBadge').innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Regenerating...';
+            document.getElementById('pinggyCmdInput').value = 'Requesting fresh tunnel from hypervisor...';
+            try {
+                const res = await fetch('/api/vps/pinggy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vpsId: activeAdminModalVpsId, force: true })
+                });
+                const data = await res.json();
+                if (data.success && data.ssh_command) {
+                    document.getElementById('pinggyCmdInput').value = data.ssh_command;
+                    document.getElementById('adminPinggyStatusBadge').innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>Live Tunnel Active';
+                }
+            } catch (e) {
+                document.getElementById('adminPinggyStatusBadge').innerHTML = '<span class="text-rose-400">Refresh Failed</span>';
+            }
         }
 
         function closeSshModal() {

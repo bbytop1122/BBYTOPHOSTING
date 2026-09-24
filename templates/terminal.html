@@ -133,21 +133,33 @@
             </div>
 
             <div class="space-y-4 mt-6">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Direct Pinggy Reverse SSH Tunnel Command</label>
+                <div class="p-4 rounded-xl bg-slate-950/80 border border-emerald-500/30">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-xs font-semibold text-emerald-400 uppercase tracking-wider">Pinggy.io Live Reverse SSH Command</label>
+                        <span id="termPinggyStatusBadge" class="inline-flex items-center text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                            <i class="fa-solid fa-spinner fa-spin mr-1"></i>Contacting Node...
+                        </span>
+                    </div>
                     <div class="flex items-center space-x-2">
-                        <input type="text" id="modalPinggyCmd" readonly value="ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-emerald-400 font-mono text-xs focus:outline-none">
-                        <button onclick="copyModalField('modalPinggyCmd')" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition">
+                        <input type="text" id="modalPinggyCmd" readonly value="Connecting to node..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-emerald-300 font-mono text-xs focus:outline-none select-all">
+                        <button onclick="copyModalField('modalPinggyCmd')" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-emerald-900/30">
                             <i class="fa-solid fa-copy"></i>
+                            <span>Copy</span>
                         </button>
                     </div>
-                    <p class="text-[11px] text-slate-400 mt-1">Run this inside the instance or host to get a live public Pinggy link and TCP forwarder port.</p>
+                    <div class="flex items-center justify-between mt-2 text-[11px] text-slate-400">
+                        <span>Direct SSH access command through Pinggy.io TCP tunnel.</span>
+                        <button onclick="fetchTerminalPinggy(true)" class="text-emerald-400 hover:text-emerald-300 transition flex items-center space-x-1 font-medium text-[11px]">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                            <span>Refresh</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div>
                     <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Direct Public IP Connection (Port 22)</label>
                     <div class="flex items-center space-x-2">
-                        <input type="text" id="modalDirectSshCmd" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-indigo-300 font-mono text-xs focus:outline-none">
+                        <input type="text" id="modalDirectSshCmd" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-indigo-300 font-mono text-xs focus:outline-none select-all">
                         <button onclick="copyModalField('modalDirectSshCmd')" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">
                             <i class="fa-solid fa-copy"></i>
                         </button>
@@ -576,15 +588,50 @@
             printPrompt();
         }
 
-        function copyPinggyCmd() {
-            const cmd = "ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io";
+        let currentLivePinggyCmd = "ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io";
+
+        async function fetchTerminalPinggy(force = false) {
+            const vpsId = currentVps ? currentVps.id : urlVpsId;
+            document.getElementById('termPinggyStatusBadge').innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Contacting Node...';
+            try {
+                const res = await fetch('/api/vps/pinggy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vpsId, force })
+                });
+                const data = await res.json();
+                if (data.success && data.ssh_command) {
+                    currentLivePinggyCmd = data.ssh_command;
+                    document.getElementById('modalPinggyCmd').value = data.ssh_command;
+                    document.getElementById('termPinggyStatusBadge').innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>Live Tunnel Active';
+                    return data.ssh_command;
+                }
+            } catch (e) {
+                console.error("Pinggy fetch error", e);
+            }
+            document.getElementById('termPinggyStatusBadge').innerHTML = '<span class="text-amber-400">Direct SSH Ready</span>';
+            return currentLivePinggyCmd;
+        }
+
+        async function copyPinggyCmd() {
+            let cmd = currentLivePinggyCmd;
+            if (currentVps && currentVps.pinggyCommand) {
+                cmd = currentVps.pinggyCommand;
+            }
             navigator.clipboard.writeText(cmd);
-            term.writeln('\r\n\x1b[32m[COPIED]\x1b[0m Pinggy.io reverse tunnel command copied to clipboard: ' + cmd + '\r\n');
+            term.writeln('\r\n\x1b[32m[COPIED]\x1b[0m Pinggy.io reverse tunnel command copied to clipboard: \x1b[33m' + cmd + '\x1b[0m\r\n');
             printPrompt();
         }
 
         function openPinggyModal() {
             document.getElementById('pinggyModal').classList.remove('hidden');
+            if (currentVps) {
+                document.getElementById('modalDirectSshCmd').value = currentVps.sshCommand || `ssh root@${currentVps.ipAddress} -p 22`;
+                if (currentVps.pinggyCommand) {
+                    document.getElementById('modalPinggyCmd').value = currentVps.pinggyCommand;
+                }
+            }
+            fetchTerminalPinggy();
         }
 
         function closePinggyModal() {

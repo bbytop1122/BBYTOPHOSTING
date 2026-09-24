@@ -9,7 +9,7 @@ with your NexusVPS Enterprise Management Panel.
 Run standalone (no external pip packages required):
     python3 nodeserver.py --port 5000 --token YOUR_SECURE_TOKEN
 
-Or in the background with systemd:
+Or in the background with systemd / nohup:
     nohup python3 nodeserver.py --port 5000 --token YOUR_SECURE_TOKEN > /var/log/nexus-agent.log 2>&1 &
 """
 
@@ -17,6 +17,7 @@ import http.server
 import socketserver
 import json
 import urllib.parse
+import urllib.request
 import os
 import sys
 import time
@@ -25,10 +26,158 @@ import platform
 import subprocess
 import socket
 import argparse
+import pty
+import select
+import re
+import threading
 
-# In-memory storage for managed VPS instances on this node
+# In-memory storage for managed VPS instances and active Pinggy tunnels on this node
 local_vps_db = {}
+active_pinggy_tunnels = {}
 START_TIME = time.time()
+
+def find_free_port(start_port=22022):
+    """Finds an unused TCP port on the host for container port forwarding."""
+    for p in range(start_port, start_port + 2000):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(("0.0.0.0", p))
+                return p
+        except OSError:
+            continue
+    return 22222
+
+def get_real_public_ip():
+    """Resolves the authentic public IPv4 address of this node."""
+    for service in ["https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com"]:
+        try:
+            req = urllib.request.Request(service, headers={"User-Agent": "curl/7.68.0"})
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                ip_str = resp.read().decode("utf-8").strip()
+                if ip_str and len(ip_str) <= 45 and ("." in ip_str or ":" in ip_str):
+                    return ip_str
+        except Exception:
+            continue
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        return local_ip
+    except Exception:
+        pass
+    return "127.0.0.1"
+
+def start_pinggy_tunnel(target_port=22, vps_id="default"):
+    """
+    Spawns an authentic Pinggy.io reverse SSH tunnel to expose target_port.
+    Parses the live tcp:// output to generate the direct SSH connection command.
+    """
+    global active_pinggy_tunnels
+
+    # Check if existing tunnel process is still alive
+    if vps_id in active_pinggy_tunnels:
+        existing = active_pinggy_tunnels[vps_id]
+        proc = existing.get("proc")
+        if proc and proc.poll() is None:
+            return {
+                "success": True,
+                "ssh_command": existing.get("ssh_command"),
+                "tunnel_url": existing.get("tunnel_url"),
+                "host": existing.get("host"),
+                "port": existing.get("port"),
+                "status": "active"
+            }
+
+    # Verify ssh is available
+    if not shutil.which("ssh"):
+        return {
+            "success": False,
+            "error": "OpenSSH client (ssh) is not installed on this node. Please run 'apt install -y openssh-client'.",
+            "ssh_command": f"ssh -p 443 -R0:localhost:{target_port} -o StrictHostKeyChecking=no tcp@a.pinggy.io",
+            "status": "fallback"
+        }
+
+    try:
+        master, slave = pty.openpty()
+        cmd = [
+            "ssh", "-p", "443",
+            f"-R0:localhost:{target_port}",
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "ServerAliveInterval=15",
+            "tcp@a.pinggy.io"
+        ]
+        proc = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave, close_fds=True)
+        os.close(slave)
+
+        start_t = time.time()
+        raw = b""
+        tunnel_url = None
+        ssh_cmd = None
+        host = None
+        tun_port = None
+
+        while time.time() - start_t < 6.0:
+            r, _, _ = select.select([master], [], [], 0.25)
+            if r:
+                try:
+                    chunk = os.read(master, 1024)
+                    if not chunk:
+                        break
+                    raw += chunk
+                    text = raw.decode("utf-8", errors="replace")
+                    # Match tcp://hostname:port from Pinggy output
+                    m = re.search(r"tcp://([a-zA-Z0-9\.\-]+):(\d+)", text)
+                    if m:
+                        host = m.group(1)
+                        tun_port = m.group(2)
+                        tunnel_url = f"tcp://{host}:{tun_port}"
+                        ssh_cmd = f"ssh -p {tun_port} root@{host}"
+                        break
+                except Exception:
+                    break
+
+        if ssh_cmd:
+            active_pinggy_tunnels[vps_id] = {
+                "proc": proc,
+                "master": master,
+                "ssh_command": ssh_cmd,
+                "tunnel_url": tunnel_url,
+                "host": host,
+                "port": tun_port,
+                "started_at": int(time.time())
+            }
+            return {
+                "success": True,
+                "ssh_command": ssh_cmd,
+                "tunnel_url": tunnel_url,
+                "host": host,
+                "port": tun_port,
+                "status": "active"
+            }
+        else:
+            # Fallback if Pinggy took longer than 6 seconds to announce
+            active_pinggy_tunnels[vps_id] = {
+                "proc": proc,
+                "master": master,
+                "ssh_command": f"ssh -p 443 -R0:localhost:{target_port} -o StrictHostKeyChecking=no tcp@a.pinggy.io",
+                "tunnel_url": None,
+                "host": "a.pinggy.io",
+                "port": target_port,
+                "started_at": int(time.time())
+            }
+            return {
+                "success": True,
+                "ssh_command": f"ssh -p 443 -R0:localhost:{target_port} -o StrictHostKeyChecking=no tcp@a.pinggy.io",
+                "status": "starting"
+            }
+    except Exception as ex:
+        return {
+            "success": False,
+            "error": f"Failed to initialize Pinggy tunnel: {str(ex)}",
+            "ssh_command": f"ssh -p 443 -R0:localhost:{target_port} -o StrictHostKeyChecking=no tcp@a.pinggy.io",
+            "status": "error"
+        }
 
 def get_real_system_stats():
     """Extracts authentic Linux telemetry from /proc, shutil, and system tools."""
@@ -242,8 +391,10 @@ class NodeAgentHandler(http.server.SimpleHTTPRequestHandler):
         except Exception:
             data = {}
 
+        # 1. Provision New VPS on Node
         if path == "/vps/create":
-            hostname = data.get("hostname", "vps-instance").strip()
+            vps_id = data.get("vps_id") or data.get("id") or f"vps_{int(time.time() * 1000) % 100000}"
+            hostname = data.get("hostname", f"node-vps-{vps_id}").strip()
             vps_type = data.get("vps_type", "docker").lower()
             os_name = data.get("os", "ubuntu-22.04")
             ram_gb = int(data.get("ram_gb", 4))
@@ -252,23 +403,13 @@ class NodeAgentHandler(http.server.SimpleHTTPRequestHandler):
             root_pass = data.get("root_pass", "root123")
             kvm = bool(data.get("kvm", False))
 
-            # Real Public IP & Pinggy Tunnel Command
-            assigned_ip = "127.0.0.1"
-            try:
-                import urllib.request
-                req = urllib.request.Request("https://api.ipify.org", headers={"User-Agent": "curl/7.68.0"})
-                with urllib.request.urlopen(req, timeout=3) as resp:
-                    assigned_ip = resp.read().decode("utf-8").strip()
-            except Exception:
-                assigned_ip = f"10.{hash(vps_id) % 250 + 1}.{hash(hostname) % 250 + 1}.{len(local_vps_db) + 10}"
-
-            # Attempt real container creation if docker exists
+            assigned_ip = get_real_public_ip()
             docker_created = False
             docker_cmd_log = ""
-            pinggy_url = "https://pinggy.io"
-            pinggy_command = "ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io"
+            ssh_host_port = 22
 
-            if vps_type == "docker" and shutil.which("docker"):
+            # Try Real Container Provisioning if Docker is installed on this node
+            if shutil.which("docker"):
                 image_map = {
                     "ubuntu-22.04": "ubuntu:22.04",
                     "ubuntu-24.04": "ubuntu:24.04",
@@ -277,25 +418,61 @@ class NodeAgentHandler(http.server.SimpleHTTPRequestHandler):
                     "alpine-3.19": "alpine:3.19"
                 }
                 docker_img = image_map.get(os_name, "ubuntu:22.04")
+                ssh_host_port = find_free_port(22020 + (len(local_vps_db) * 5))
+
                 try:
-                    cmd = [
+                    # Remove any conflicting stale container
+                    subprocess.run(["docker", "rm", "-f", vps_id], capture_output=True, timeout=5)
+
+                    run_cmd = [
                         "docker", "run", "-d",
                         "--name", vps_id,
                         "--hostname", hostname,
                         "--privileged",
+                        "-p", f"{ssh_host_port}:22",
                         "-m", f"{ram_gb}g",
                         f"--cpus={cpu_cores}",
+                        "--restart=unless-stopped",
                         docker_img,
                         "sleep", "infinity"
                     ]
-                    res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                    res = subprocess.run(run_cmd, capture_output=True, text=True, timeout=15)
                     if res.returncode == 0:
                         docker_created = True
-                        docker_cmd_log = "Docker container spawned with systemd privilege."
+                        docker_cmd_log = f"Docker container spawned with port {ssh_host_port}:22 mapped."
+
+                        # Configure root password and SSH server inside container in background
+                        def setup_container_ssh(cid, pwd, img):
+                            try:
+                                # Set root password
+                                subprocess.run(["docker", "exec", cid, "sh", "-c", f"echo 'root:{pwd}' | chpasswd 2>/dev/null || true"], timeout=5)
+                                # Install and launch openssh-server inside container
+                                if "alpine" in img:
+                                    setup_cmd = f"apk add --no-cache openssh-server curl sudo && ssh-keygen -A && sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && /usr/sbin/sshd"
+                                else:
+                                    setup_cmd = f"(which sshd || (apt-get update && apt-get install -y openssh-server curl sudo)) && ssh-keygen -A 2>/dev/null; mkdir -p /var/run/sshd && sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config 2>/dev/null; (service ssh start || /usr/sbin/sshd || true)"
+                                subprocess.run(["docker", "exec", cid, "sh", "-c", setup_cmd], capture_output=True, timeout=30)
+                            except Exception:
+                                pass
+
+                        threading.Thread(target=setup_container_ssh, args=(vps_id, root_pass, docker_img), daemon=True).start()
                     else:
-                        docker_cmd_log = f"Docker fallback: {res.stderr.strip()}"
+                        docker_cmd_log = f"Docker spawn notice: {res.stderr.strip()}"
                 except Exception as ex:
-                    docker_cmd_log = f"Docker err: {str(ex)}"
+                    docker_cmd_log = f"Docker setup error: {str(ex)}"
+
+            # If Docker not used or failed, set up dedicated workspace on node filesystem
+            vps_workspace = os.path.join("/var/nexus_vps" if os.access("/var", os.W_OK) else os.path.expanduser("~/.nexus_vps"), vps_id)
+            os.makedirs(os.path.join(vps_workspace, "root"), exist_ok=True)
+            os.makedirs(os.path.join(vps_workspace, "etc"), exist_ok=True)
+            with open(os.path.join(vps_workspace, "etc", "issue"), "w") as f:
+                f.write(f"NexusVPS Node Hypervisor ({os_name})\nHostname: {hostname}\nInstance: {vps_id}\n")
+            with open(os.path.join(vps_workspace, "root", "WELCOME.txt"), "w") as f:
+                f.write(f"Welcome to your VPS {hostname} ({vps_id})\nOS: {os_name}\nCreated: {time.strftime('%Y-%m-%d %H:%M:%S UTC')}\n")
+
+            # Initial Pinggy tunnel trigger
+            pinggy_res = start_pinggy_tunnel(target_port=ssh_host_port if docker_created else 22, vps_id=vps_id)
+            live_pinggy_cmd = pinggy_res.get("ssh_command") or f"ssh -p 443 -R0:localhost:{ssh_host_port}:22 -o StrictHostKeyChecking=no a.pinggy.io"
 
             instance_record = {
                 "vps_id": vps_id,
@@ -309,10 +486,11 @@ class NodeAgentHandler(http.server.SimpleHTTPRequestHandler):
                 "kvm_enabled": kvm,
                 "status": "running",
                 "ip_address": assigned_ip,
-                "pinggy_url": pinggy_url,
-                "pinggy_command": pinggy_command,
-                "ssh_command": f"ssh root@{assigned_ip} -p 22",
+                "ssh_host_port": ssh_host_port,
+                "pinggy_command": live_pinggy_cmd,
+                "ssh_command": f"ssh root@{assigned_ip} -p {ssh_host_port}",
                 "docker_created": docker_created,
+                "workspace": vps_workspace,
                 "created_at": int(time.time())
             }
 
@@ -323,17 +501,42 @@ class NodeAgentHandler(http.server.SimpleHTTPRequestHandler):
                 "vps": instance_record,
                 "vps_id": vps_id,
                 "ip_address": assigned_ip,
-                "pinggy_url": pinggy_url,
-                "pinggy_command": pinggy_command,
-                "ssh_command": f"ssh root@{assigned_ip} -p 22",
+                "pinggy_command": live_pinggy_cmd,
+                "ssh_command": f"ssh root@{assigned_ip} -p {ssh_host_port}",
+                "docker_created": docker_created,
                 "message": f"Successfully initialized {vps_type.upper()} instance {hostname} on hypervisor.",
                 "details": docker_cmd_log
             })
             return
 
+        # 2. Generate / Retrieve Live Pinggy Reverse SSH Tunnel
+        elif path in ["/vps/pinggy", "/vps/ssh-tunnel"]:
+            vps_id = data.get("vps_id") or data.get("vpsId") or "default"
+            vps = local_vps_db.get(vps_id, {})
+            target_port = vps.get("ssh_host_port", 22) if vps.get("docker_created") else 22
+
+            pinggy_res = start_pinggy_tunnel(target_port=target_port, vps_id=vps_id)
+            if pinggy_res.get("ssh_command"):
+                if vps_id in local_vps_db:
+                    local_vps_db[vps_id]["pinggy_command"] = pinggy_res["ssh_command"]
+
+            self.send_json({
+                "success": pinggy_res.get("success", True),
+                "vps_id": vps_id,
+                "ssh_command": pinggy_res.get("ssh_command"),
+                "tunnel_url": pinggy_res.get("tunnel_url"),
+                "host": pinggy_res.get("host"),
+                "port": pinggy_res.get("port"),
+                "status": pinggy_res.get("status", "active"),
+                "root_pass": vps.get("root_pass", "root123"),
+                "direct_ssh": f"ssh root@{vps.get('ip_address', get_real_public_ip())} -p {target_port}"
+            })
+            return
+
+        # 3. VPS Power Actions (start, stop, restart, delete)
         elif path in ["/vps/action", "/vps/action/"]:
             vps_id = data.get("vps_id") or data.get("vpsId")
-            action = data.get("action")  # start, stop, restart, delete
+            action = data.get("action")
             if vps_id in local_vps_db:
                 vps = local_vps_db[vps_id]
                 if action == "stop":
@@ -341,12 +544,17 @@ class NodeAgentHandler(http.server.SimpleHTTPRequestHandler):
                 elif action in ["start", "restart"]:
                     vps["status"] = "running"
                 elif action == "delete":
+                    if vps.get("docker_created") and shutil.which("docker"):
+                        try:
+                            subprocess.run(["docker", "rm", "-f", vps_id], capture_output=True, timeout=5)
+                        except Exception:
+                            pass
                     del local_vps_db[vps_id]
                     self.send_json({"success": True, "message": f"Instance {vps_id} purged."})
                     return
 
                 # If docker container, execute docker action
-                if shutil.which("docker"):
+                if vps.get("docker_created") and shutil.which("docker"):
                     try:
                         act_cmd = "restart" if action == "restart" else ("start" if action == "start" else "stop")
                         subprocess.run(["docker", act_cmd, vps_id], capture_output=True, timeout=5)
@@ -358,6 +566,7 @@ class NodeAgentHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json({"success": False, "error": "Instance not found on this node"}, 404)
             return
 
+        # 4. VPS Command Execution (Direct execution inside container or workspace)
         elif path == "/vps/exec":
             vps_id = data.get("vps_id") or data.get("vpsId")
             cmd = data.get("command", "").strip()
@@ -365,27 +574,35 @@ class NodeAgentHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json({"success": False, "error": "Command is required"}, 400)
                 return
 
+            vps = local_vps_db.get(vps_id, {})
             output = ""
             exit_code = 0
-            # If docker container exists, execute inside container
-            if vps_id and shutil.which("docker") and local_vps_db.get(vps_id, {}).get("docker_created"):
+
+            # If real Docker container exists, execute inside container
+            if vps_id and shutil.which("docker") and vps.get("docker_created"):
                 try:
-                    res = subprocess.run(["docker", "exec", vps_id, "sh", "-c", cmd], capture_output=True, text=True, timeout=15)
+                    res = subprocess.run(["docker", "exec", "-i", vps_id, "bash", "-c", cmd], capture_output=True, text=True, timeout=20)
                     output = res.stdout + res.stderr
                     exit_code = res.returncode
-                except Exception as ex:
-                    output = f"Execution error in container: {str(ex)}\n"
-                    exit_code = 1
+                except Exception:
+                    try:
+                        res = subprocess.run(["docker", "exec", "-i", vps_id, "sh", "-c", cmd], capture_output=True, text=True, timeout=20)
+                        output = res.stdout + res.stderr
+                        exit_code = res.returncode
+                    except Exception as ex:
+                        output = f"Execution error in container: {str(ex)}\n"
+                        exit_code = 1
             else:
                 # Real execution in isolated instance workspace on this node
-                vps_root = os.path.join("/tmp", "nexus_vps", str(vps_id) if vps_id else "host")
-                os.makedirs(vps_root, exist_ok=True)
+                vps_root = vps.get("workspace") or os.path.join(os.path.expanduser("~/.nexus_vps"), str(vps_id) if vps_id else "host")
+                root_cwd = os.path.join(vps_root, "root") if os.path.exists(os.path.join(vps_root, "root")) else vps_root
+                os.makedirs(root_cwd, exist_ok=True)
                 try:
-                    res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15, cwd=vps_root)
+                    res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=20, cwd=root_cwd)
                     output = res.stdout + (res.stderr if res.stderr else "")
                     exit_code = res.returncode
                 except subprocess.TimeoutExpired:
-                    output = f"Command timed out after 15 seconds\n"
+                    output = "Command timed out after 20 seconds\n"
                     exit_code = 124
                 except Exception as ex:
                     output = f"Execution error: {str(ex)}\n"
@@ -400,11 +617,12 @@ def run_agent(host, port, token):
     NodeAgentHandler.agent_token = token
     socketserver.TCPServer.allow_reuse_address = True
     print(f"==================================================")
-    print(f" NexusVPS Enterprise Node Agent v4.5 Active")
+    print(f" NexusVPS Enterprise Node Agent v5.0 Active")
     print(f" Bound to: http://{host}:{port}")
     print(f" API Token: {token[:6]}...{token[-4:] if len(token) > 8 else ''}")
     print(f" Real Telemetry: /stats | /health")
-    print(f" VPS Virtualization Engine: Docker (Systemd) & QEMU/KVM")
+    print(f" Pinggy.io Dynamic Reverse SSH Tunneling: Enabled")
+    print(f" Real Container & Node Virtualization: Enabled")
     print(f"==================================================")
     with socketserver.TCPServer((host, port), NodeAgentHandler) as server:
         try:

@@ -25,6 +25,9 @@ import socket
 import platform
 import subprocess
 import threading
+import pty
+import select
+import re
 
 PORT = int(os.environ.get("PORT", 3000))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) if __file__ else os.getcwd()
@@ -221,6 +224,110 @@ def get_real_public_ip():
         pass
     
     return "127.0.0.1"
+
+# -------------------------------------------------------------
+# DYNAMIC PINGGY.IO REVERSE SSH TUNNEL CONTROLLER
+# -------------------------------------------------------------
+active_controller_pinggy_tunnels = {}
+
+def start_controller_pinggy_tunnel(target_port=22, vps_id="default"):
+    """Spawns an authentic Pinggy.io reverse SSH tunnel to expose target_port on host."""
+    global active_controller_pinggy_tunnels
+    if vps_id in active_controller_pinggy_tunnels:
+        existing = active_controller_pinggy_tunnels[vps_id]
+        proc = existing.get("proc")
+        if proc and proc.poll() is None:
+            return {
+                "success": True,
+                "ssh_command": existing.get("ssh_command"),
+                "tunnel_url": existing.get("tunnel_url"),
+                "host": existing.get("host"),
+                "port": existing.get("port"),
+                "status": "active"
+            }
+
+    if not shutil.which("ssh"):
+        return {
+            "success": False,
+            "ssh_command": f"ssh -p 443 -R0:localhost:{target_port} -o StrictHostKeyChecking=no tcp@a.pinggy.io",
+            "status": "fallback"
+        }
+
+    try:
+        master, slave = pty.openpty()
+        cmd = [
+            "ssh", "-p", "443",
+            f"-R0:localhost:{target_port}",
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "ServerAliveInterval=15",
+            "tcp@a.pinggy.io"
+        ]
+        proc = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave, close_fds=True)
+        os.close(slave)
+
+        start_t = time.time()
+        raw = b""
+        tunnel_url = None
+        ssh_cmd = None
+        host = None
+        tun_port = None
+
+        while time.time() - start_t < 6.0:
+            r, _, _ = select.select([master], [], [], 0.25)
+            if r:
+                try:
+                    chunk = os.read(master, 1024)
+                    if not chunk: break
+                    raw += chunk
+                    text = raw.decode("utf-8", errors="replace")
+                    m = re.search(r"tcp://([a-zA-Z0-9\.\-]+):(\d+)", text)
+                    if m:
+                        host = m.group(1)
+                        tun_port = m.group(2)
+                        tunnel_url = f"tcp://{host}:{tun_port}"
+                        ssh_cmd = f"ssh -p {tun_port} root@{host}"
+                        break
+                except Exception:
+                    break
+
+        if ssh_cmd:
+            active_controller_pinggy_tunnels[vps_id] = {
+                "proc": proc,
+                "master": master,
+                "ssh_command": ssh_cmd,
+                "tunnel_url": tunnel_url,
+                "host": host,
+                "port": tun_port,
+                "started_at": int(time.time())
+            }
+            return {
+                "success": True,
+                "ssh_command": ssh_cmd,
+                "tunnel_url": tunnel_url,
+                "host": host,
+                "port": tun_port,
+                "status": "active"
+            }
+        else:
+            fallback_cmd = f"ssh -p 443 -R0:localhost:{target_port} -o StrictHostKeyChecking=no tcp@a.pinggy.io"
+            active_controller_pinggy_tunnels[vps_id] = {
+                "proc": proc,
+                "master": master,
+                "ssh_command": fallback_cmd,
+                "started_at": int(time.time())
+            }
+            return {
+                "success": True,
+                "ssh_command": fallback_cmd,
+                "status": "starting"
+            }
+    except Exception as ex:
+        return {
+            "success": False,
+            "ssh_command": f"ssh -p 443 -R0:localhost:{target_port} -o StrictHostKeyChecking=no tcp@a.pinggy.io",
+            "error": str(ex),
+            "status": "error"
+        }
 
 # -------------------------------------------------------------
 # PERSISTENT DATA STORE (NO MOCK / FAKE OBJECTS)
@@ -852,6 +959,8 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
             if selected_node.get("type") == "remote" and selected_node.get("url") and selected_node.get("token"):
                 try:
                     payload = json.dumps({
+                        "vps_id": new_vps_id,
+                        "name": name,
                         "hostname": hostname,
                         "vps_type": vps_type,
                         "os": os_type,
@@ -870,7 +979,7 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
                         },
                         method="POST"
                     )
-                    with urllib.request.urlopen(req, timeout=8) as r:
+                    with urllib.request.urlopen(req, timeout=15) as r:
                         if r.status == 200:
                             rem_data = json.loads(r.read().decode("utf-8"))
                             if rem_data.get("vps_id"):
@@ -881,11 +990,22 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
                                 pinggy_cmd = rem_data["pinggy_command"]
                             if rem_data.get("ssh_command"):
                                 ssh_command = rem_data["ssh_command"]
+                        else:
+                            self.send_json({"success": False, "error": f"Remote node rejected creation with HTTP {r.status}"}, 400)
+                            return
+                except urllib.error.HTTPError as he:
+                    err_msg = he.read().decode("utf-8", errors="ignore") if he.fp else str(he)
+                    self.send_json({"success": False, "error": f"Remote node error: {err_msg}"}, 400)
+                    return
                 except Exception as ex:
-                    print(f"[Remote Agent Notice] {ex}. Proceeding with local cluster mapping.")
+                    self.send_json({"success": False, "error": f"Failed to connect to remote node '{selected_node['name']}': {str(ex)}. Ensure 'nodeserver.py' is running on {selected_node['url']}."}, 400)
+                    return
             else:
-                # Local Node: Initialize real isolated instance workspace
+                # Local Node: Initialize real isolated instance workspace & tunnel
                 get_instance_workspace(new_vps_id, hostname, os_type)
+                pinggy_res = start_controller_pinggy_tunnel(target_port=22, vps_id=new_vps_id)
+                if pinggy_res.get("ssh_command"):
+                    pinggy_cmd = pinggy_res["ssh_command"]
 
             host_current = get_real_system_stats()
             new_vps = {
@@ -917,6 +1037,64 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
             vps_list.append(new_vps)
             save_json(VPS_FILE, vps_list)
             self.send_json({"success": True, "vps": new_vps})
+            return
+
+        # 6b. Generate / Fetch Live Pinggy.io Reverse SSH Command (POST /api/vps/pinggy)
+        elif path in ["/api/vps/pinggy", "/api/vps/ssh-tunnel"]:
+            vps_id = data.get("vpsId") or data.get("vps_id")
+            vps = next((v for v in vps_list if v["id"] == vps_id), None)
+            if not vps:
+                self.send_json({"success": False, "error": "Instance not found"}, 404)
+                return
+
+            node = next((n for n in nodes if n["id"] == vps.get("nodeId")), None)
+            # If remote node, ask remote node agent to generate/provide live Pinggy tunnel
+            if node and node.get("type") == "remote" and node.get("url") and node.get("token"):
+                try:
+                    payload = json.dumps({"vps_id": vps_id}).encode("utf-8")
+                    req = urllib.request.Request(
+                        f"{node['url']}/vps/pinggy",
+                        data=payload,
+                        headers={"Content-Type": "application/json", "Authorization": f"Bearer {node['token']}"},
+                        method="POST"
+                    )
+                    with urllib.request.urlopen(req, timeout=10) as r:
+                        rem_res = json.loads(r.read().decode("utf-8"))
+                        if rem_res.get("ssh_command"):
+                            vps["pinggyCommand"] = rem_res["ssh_command"]
+                            save_json(VPS_FILE, vps_list)
+                        self.send_json({
+                            "success": True,
+                            "vps_id": vps_id,
+                            "ssh_command": rem_res.get("ssh_command", vps.get("pinggyCommand")),
+                            "tunnel_url": rem_res.get("tunnel_url"),
+                            "root_pass": vps.get("rootPass"),
+                            "ip_address": vps.get("ipAddress"),
+                            "direct_ssh": vps.get("sshCommand") or f"ssh root@{vps.get('ipAddress')} -p 22",
+                            "status": rem_res.get("status", "active"),
+                            "node": node.get("name")
+                        })
+                        return
+                except Exception as ex:
+                    print(f"[Remote Node Pinggy Error] {ex}")
+
+            # Local Node: generate Pinggy tunnel on controller
+            pinggy_res = start_controller_pinggy_tunnel(target_port=22, vps_id=vps_id)
+            if pinggy_res.get("ssh_command"):
+                vps["pinggyCommand"] = pinggy_res["ssh_command"]
+                save_json(VPS_FILE, vps_list)
+
+            self.send_json({
+                "success": True,
+                "vps_id": vps_id,
+                "ssh_command": pinggy_res.get("ssh_command", vps.get("pinggyCommand")),
+                "tunnel_url": pinggy_res.get("tunnel_url"),
+                "root_pass": vps.get("rootPass"),
+                "ip_address": vps.get("ipAddress"),
+                "direct_ssh": vps.get("sshCommand") or f"ssh root@{vps.get('ipAddress')} -p 22",
+                "status": pinggy_res.get("status", "active"),
+                "node": "Local Hypervisor Node"
+            })
             return
 
         # 7. VPS Action Endpoint (Start, Stop, Restart)
