@@ -252,13 +252,21 @@ class NodeAgentHandler(http.server.SimpleHTTPRequestHandler):
             root_pass = data.get("root_pass", "root123")
             kvm = bool(data.get("kvm", False))
 
-            vps_id = f"vps_{int(time.time())}_{hostname[:8]}"
-            assigned_ip = f"10.{hash(vps_id) % 250 + 1}.{hash(hostname) % 250 + 1}.{len(local_vps_db) + 10}"
+            # Real Public IP & Pinggy Tunnel Command
+            assigned_ip = "127.0.0.1"
+            try:
+                import urllib.request
+                req = urllib.request.Request("https://api.ipify.org", headers={"User-Agent": "curl/7.68.0"})
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    assigned_ip = resp.read().decode("utf-8").strip()
+            except Exception:
+                assigned_ip = f"10.{hash(vps_id) % 250 + 1}.{hash(hostname) % 250 + 1}.{len(local_vps_db) + 10}"
 
             # Attempt real container creation if docker exists
             docker_created = False
             docker_cmd_log = ""
-            sshx_url = f"https://sshx.io/s/{vps_id}"
+            pinggy_url = "https://pinggy.io"
+            pinggy_command = "ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io"
 
             if vps_type == "docker" and shutil.which("docker"):
                 image_map = {
@@ -301,7 +309,8 @@ class NodeAgentHandler(http.server.SimpleHTTPRequestHandler):
                 "kvm_enabled": kvm,
                 "status": "running",
                 "ip_address": assigned_ip,
-                "sshx_url": sshx_url,
+                "pinggy_url": pinggy_url,
+                "pinggy_command": pinggy_command,
                 "ssh_command": f"ssh root@{assigned_ip} -p 22",
                 "docker_created": docker_created,
                 "created_at": int(time.time())
@@ -314,7 +323,8 @@ class NodeAgentHandler(http.server.SimpleHTTPRequestHandler):
                 "vps": instance_record,
                 "vps_id": vps_id,
                 "ip_address": assigned_ip,
-                "sshx_url": sshx_url,
+                "pinggy_url": pinggy_url,
+                "pinggy_command": pinggy_command,
                 "ssh_command": f"ssh root@{assigned_ip} -p 22",
                 "message": f"Successfully initialized {vps_type.upper()} instance {hostname} on hypervisor.",
                 "details": docker_cmd_log

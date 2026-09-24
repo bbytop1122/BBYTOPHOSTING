@@ -1,0 +1,25 @@
+[
+  {
+    "id": "node_local_1",
+    "name": "Local Hypervisor Node (localhost)",
+    "url": "http://127.0.0.1:3000",
+    "token": "nexus_local_internal_token",
+    "status": "online",
+    "type": "local",
+    "os": "Debian GNU/Linux 12 (bookworm)",
+    "hostname": "localhost",
+    "cpu_cores": 2,
+    "cpu_usage_percent": 0.0,
+    "ram_total_gb": 4.0,
+    "ram_used_gb": 0.18,
+    "ram_free_gb": 3.8,
+    "disk_total_gb": 503.83,
+    "disk_used_gb": 0.0,
+    "disk_free_gb": 503.83,
+    "uptime_str": "10m",
+    "kvm_supported": true,
+    "docker_supported": false,
+    "systemd_supported": false,
+    "last_verified": 1790257358
+  }
+]

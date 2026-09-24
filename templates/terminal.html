@@ -61,10 +61,10 @@
                     <span id="powerActionLabel">Power</span>
                 </button>
 
-                <a id="sshxExternalLink" href="#" target="_blank" class="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-semibold hover:bg-indigo-500/20 transition">
-                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                    <span>SSHX Session</span>
-                </a>
+                <button onclick="openPinggyModal()" class="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold hover:bg-emerald-500/20 transition">
+                    <i class="fa-solid fa-satellite-dish text-xs"></i>
+                    <span>Pinggy.io Tunnel</span>
+                </button>
             </div>
         </div>
     </header>
@@ -82,6 +82,7 @@
                 <span class="text-slate-400 font-mono">SSH:</span>
                 <input id="quickSshCmd" readonly class="bg-slate-950 px-2 py-1 rounded border border-slate-800 font-mono text-slate-300 text-[11px] w-48 sm:w-56 select-all focus:outline-none">
                 <button onclick="copySsh()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-[11px] font-semibold transition"><i class="fa-solid fa-copy mr-1"></i>Copy</button>
+                <button onclick="copyPinggyCmd()" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded text-[11px] font-semibold transition" title="Copy Pinggy.io Tunnel Command"><i class="fa-solid fa-satellite-dish mr-1"></i>Pinggy</button>
             </div>
         </div>
     </div>
@@ -110,20 +111,66 @@
                 </div>
             </div>
 
-            <!-- xterm.js Canvas Container -->
-            <div id="terminalContainer" class="flex-1 w-full bg-slate-950 overflow-hidden relative min-h-[360px]"></div>
-
-            <!-- Interactive Terminal Prompt Input Bar (Synchronized with xterm) -->
-            <div class="p-3 bg-slate-900/90 border-t border-slate-800 flex items-center space-x-3">
-                <span id="inputPromptLabel" class="text-indigo-400 font-bold font-mono text-xs whitespace-nowrap">root@vps:~#</span>
-                <input type="text" id="terminalInput" autofocus autocomplete="off" spellcheck="false" class="flex-1 bg-transparent text-white focus:outline-none font-mono text-xs placeholder:text-slate-600" placeholder="Type Linux command (e.g. uname -a, ls -la, python3, df -h, pwd, cd /tmp)...">
-                <button onclick="submitInputCommand()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center space-x-1.5">
-                    <span>Execute</span>
-                    <i class="fa-solid fa-arrow-turn-down text-[10px]"></i>
-                </button>
-            </div>
+            <!-- xterm.js Canvas Container (Direct interactive terminal typing) -->
+            <div id="terminalContainer" class="flex-1 w-full bg-slate-950 overflow-hidden relative min-h-[440px] cursor-text" onclick="term.focus()"></div>
         </div>
     </main>
+
+    <!-- Modal: Pinggy Tunnel Details -->
+    <div id="pinggyModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-8 shadow-2xl relative font-sans">
+            <button onclick="closePinggyModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <div class="flex items-center space-x-3 mb-2">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <i class="fa-solid fa-satellite-dish text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-white">Pinggy.io Real SSH Tunnel</h3>
+                    <p class="text-xs text-slate-400">Expose SSH & Web TCP ports instantly via pinggy reverse proxy.</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 mt-6">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Direct Pinggy Reverse SSH Tunnel Command</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="modalPinggyCmd" readonly value="ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-emerald-400 font-mono text-xs focus:outline-none">
+                        <button onclick="copyModalField('modalPinggyCmd')" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1">Run this inside the instance or host to get a live public Pinggy link and TCP forwarder port.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Direct Public IP Connection (Port 22)</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="modalDirectSshCmd" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-indigo-300 font-mono text-xs focus:outline-none">
+                        <button onclick="copyModalField('modalDirectSshCmd')" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Pinggy Web Dashboard</label>
+                    <a href="https://pinggy.io" target="_blank" class="w-full py-2.5 px-4 bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition flex items-center justify-between">
+                        <span class="flex items-center space-x-2">
+                            <i class="fa-solid fa-arrow-up-right-from-square text-emerald-400"></i>
+                            <span>Visit Official Pinggy.io Portal</span>
+                        </span>
+                        <span class="text-[11px] text-emerald-400 font-mono">pinggy.io</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-800 flex justify-end">
+                <button onclick="closePinggyModal()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition">Close</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Footer -->
     <footer class="w-full border-t border-slate-800/80 py-3 text-center text-xs text-slate-500">
@@ -188,14 +235,13 @@
         fitAddon.fit();
         window.addEventListener('resize', () => fitAddon.fit());
 
-        // Keyboard navigation inside xterm
+        // Keyboard and direct interactive input handling inside xterm
         let termInputBuffer = "";
 
-        term.onKey(e => {
-            const ev = e.domEvent;
-            const printable = !ev.altKey && !ev.ctrlKey && !ev.metaKey;
-
-            if (ev.keyCode === 13) { // Enter
+        term.onData(data => {
+            if (isExecuting) return;
+            
+            if (data === '\r') { // Enter
                 const cmd = termInputBuffer.trim();
                 term.write('\r\n');
                 termInputBuffer = "";
@@ -204,12 +250,19 @@
                 } else {
                     printPrompt();
                 }
-            } else if (ev.keyCode === 8) { // Backspace
+            } else if (data === '\u007F' || data === '\b') { // Backspace
                 if (termInputBuffer.length > 0) {
                     termInputBuffer = termInputBuffer.slice(0, -1);
                     term.write('\b \b');
                 }
-            } else if (ev.keyCode === 38) { // Up arrow (History)
+            } else if (data === '\u0003') { // Ctrl+C
+                term.write('^C\r\n');
+                termInputBuffer = "";
+                historyIndex = -1;
+                printPrompt();
+            } else if (data === '\u000c') { // Ctrl+L
+                clearTerm();
+            } else if (data === '\u001b[A') { // Up arrow (History)
                 if (commandHistory.length > 0 && historyIndex < commandHistory.length - 1) {
                     historyIndex++;
                     const prevCmd = commandHistory[commandHistory.length - 1 - historyIndex];
@@ -220,7 +273,7 @@
                     termInputBuffer = prevCmd;
                     term.write(prevCmd);
                 }
-            } else if (ev.keyCode === 40) { // Down arrow
+            } else if (data === '\u001b[B') { // Down arrow
                 if (historyIndex > 0) {
                     historyIndex--;
                     const nextCmd = commandHistory[commandHistory.length - 1 - historyIndex];
@@ -237,16 +290,12 @@
                         termInputBuffer = termInputBuffer.slice(0, -1);
                     }
                 }
-            } else if (ev.keyCode === 67 && ev.ctrlKey) { // Ctrl+C
-                term.write('^C\r\n');
-                termInputBuffer = "";
-                historyIndex = -1;
-                printPrompt();
-            } else if (ev.keyCode === 76 && ev.ctrlKey) { // Ctrl+L
-                clearTerm();
-            } else if (printable) {
-                termInputBuffer += e.key;
-                term.write(e.key);
+            } else if (data.length === 1 && data.charCodeAt(0) >= 32) { // Normal printable char
+                termInputBuffer += data;
+                term.write(data);
+            } else if (data.length > 1 && !data.startsWith('\u001b')) { // Pasted text
+                termInputBuffer += data;
+                term.write(data);
             }
         });
 
@@ -256,7 +305,7 @@
             term.write(promptStr);
             const plainPrompt = `root@${host}:${currentCwd}#`;
             document.getElementById('terminalHostnamePrompt').innerText = plainPrompt;
-            document.getElementById('inputPromptLabel').innerText = plainPrompt;
+            term.focus();
         }
 
         function clearTerm() {
@@ -332,9 +381,8 @@
                     document.getElementById('barOs').innerText = currentVps.os;
                     document.getElementById('barIp').innerText = currentVps.ipAddress;
                     document.getElementById('quickSshCmd').value = currentVps.sshCommand || `ssh root@${currentVps.ipAddress} -p 22`;
-
-                    const sshxUrl = currentVps.sshxUrl || `https://sshx.io/s/${currentVps.id}`;
-                    document.getElementById('sshxExternalLink').href = sshxUrl;
+                    document.getElementById('modalDirectSshCmd').value = currentVps.sshCommand || `ssh root@${currentVps.ipAddress} -p 22`;
+                    document.getElementById('modalPinggyCmd').value = currentVps.pinggyCommand || "ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io";
 
                     updatePowerUI(currentVps.status);
                     term.writeln(`\x1b[32m[SESSION ESTABLISHED]\x1b[0m Connected to instance \x1b[1m${currentVps.name}\x1b[0m (\x1b[36m${currentVps.hostname}\x1b[0m)`);
@@ -358,6 +406,8 @@
             document.getElementById('barOs').innerText = "Host Linux Environment";
             document.getElementById('barIp').innerText = "127.0.0.1";
             document.getElementById('quickSshCmd').value = "ssh root@127.0.0.1 -p 22";
+            document.getElementById('modalDirectSshCmd').value = "ssh root@127.0.0.1 -p 22";
+            document.getElementById('modalPinggyCmd').value = "ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io";
             updatePowerUI('running');
             term.writeln('\x1b[35m[HYPERVISOR HOST SHELL]\x1b[0m Direct access to local node execution container.\r\n');
             printPrompt();
@@ -518,27 +568,34 @@
             executeCommand(cmd);
         }
 
-        function submitInputCommand() {
-            const input = document.getElementById('terminalInput');
-            const cmd = input.value.trim();
-            if (!cmd) return;
-            input.value = '';
-            term.write(cmd + '\r\n');
-            executeCommand(cmd);
-        }
-
-        const inputField = document.getElementById('terminalInput');
-        inputField.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                submitInputCommand();
-            }
-        });
-
         function copySsh() {
             const el = document.getElementById('quickSshCmd');
             el.select();
             navigator.clipboard.writeText(el.value);
             term.writeln('\r\n\x1b[32m[COPIED]\x1b[0m SSH connection command copied to clipboard.\r\n');
+            printPrompt();
+        }
+
+        function copyPinggyCmd() {
+            const cmd = "ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io";
+            navigator.clipboard.writeText(cmd);
+            term.writeln('\r\n\x1b[32m[COPIED]\x1b[0m Pinggy.io reverse tunnel command copied to clipboard: ' + cmd + '\r\n');
+            printPrompt();
+        }
+
+        function openPinggyModal() {
+            document.getElementById('pinggyModal').classList.remove('hidden');
+        }
+
+        function closePinggyModal() {
+            document.getElementById('pinggyModal').classList.add('hidden');
+        }
+
+        function copyModalField(id) {
+            const el = document.getElementById(id);
+            el.select();
+            navigator.clipboard.writeText(el.value);
+            term.writeln(`\r\n\x1b[32m[COPIED]\x1b[0m ${el.value}\r\n`);
             printPrompt();
         }
 

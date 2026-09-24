@@ -184,6 +184,45 @@ def get_real_system_stats():
     return stats
 
 # -------------------------------------------------------------
+# REAL PUBLIC IP RESOLVER & PINGGY TUNNEL UTILITIES
+# -------------------------------------------------------------
+_cached_public_ip = None
+_cached_public_ip_time = 0
+
+def get_real_public_ip():
+    global _cached_public_ip, _cached_public_ip_time
+    now = time.time()
+    if _cached_public_ip and (now - _cached_public_ip_time < 300):
+        return _cached_public_ip
+    
+    # Try public IP resolvers
+    for service in ["https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com"]:
+        try:
+            req = urllib.request.Request(service, headers={"User-Agent": "curl/7.68.0"})
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                ip_str = resp.read().decode("utf-8").strip()
+                if ip_str and len(ip_str) <= 45 and ("." in ip_str or ":" in ip_str):
+                    _cached_public_ip = ip_str
+                    _cached_public_ip_time = now
+                    return ip_str
+        except Exception:
+            continue
+
+    # Fallback to local network IP
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        _cached_public_ip = local_ip
+        _cached_public_ip_time = now
+        return local_ip
+    except Exception:
+        pass
+    
+    return "127.0.0.1"
+
+# -------------------------------------------------------------
 # PERSISTENT DATA STORE (NO MOCK / FAKE OBJECTS)
 # -------------------------------------------------------------
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
@@ -206,12 +245,17 @@ def save_json(filepath, data):
     except Exception as ex:
         print(f"[Store Error] Failed saving {filepath}: {ex}")
 
-# Users initialization
+# Users initialization: default admin user admin / pass admin
 default_users = [
-    {"id": "u_1", "name": "System Administrator", "email": "admin@cloudvps.com", "role": "admin", "password": "admin123"},
+    {"id": "u_1", "name": "Administrator", "email": "admin", "role": "admin", "password": "admin"},
     {"id": "u_2", "name": "Alex Developer", "email": "user@cloudvps.com", "role": "user", "password": "user123"}
 ]
 users = load_json(USERS_FILE, default_users)
+# Ensure admin user has admin password
+for u in users:
+    if u.get("role") == "admin" and (u.get("email") == "admin" or u.get("email") == "admin@cloudvps.com"):
+        u["email"] = "admin"
+        u["password"] = "admin"
 save_json(USERS_FILE, users)
 
 # Initial Host Node (100% Real hardware from host)
@@ -420,13 +464,22 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # 4. VPS List Endpoint (User gets assigned only; Admin gets all)
-        elif path == "/api/vps":
+        elif path in ["/api/vps", "/api/vps/list"]:
             user_id = query_params.get("userId", [None])[0]
             role = query_params.get("role", ["user"])[0]
 
-            # Update real-time instance resource usage
+            # Update real-time instance resource usage and ensure real public IP & pinggy command
             host_current = get_real_system_stats()
+            real_pub_ip = get_real_public_ip()
             for v in vps_list:
+                if v.get("ipAddress") == "127.0.0.1" and real_pub_ip and real_pub_ip != "127.0.0.1":
+                    v["ipAddress"] = real_pub_ip
+                if not v.get("pinggyCommand"):
+                    v["pinggyCommand"] = "ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io"
+                if not v.get("pinggyUrl"):
+                    v["pinggyUrl"] = "https://pinggy.io"
+                v["sshCommand"] = f"ssh root@{v.get('ipAddress', real_pub_ip)} -p 22"
+
                 if v.get("status") == "running":
                     v["cpuUsage"] = host_current.get("cpu_usage_percent", 0.0)
                     v["ramUsage"] = host_current.get("ram_usage_percent", 0.0)
@@ -451,6 +504,15 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
             vps = next((v for v in vps_list if v["id"] == vps_id), None)
             if vps:
                 host_current = get_real_system_stats()
+                real_pub_ip = get_real_public_ip()
+                if vps.get("ipAddress") == "127.0.0.1" and real_pub_ip and real_pub_ip != "127.0.0.1":
+                    vps["ipAddress"] = real_pub_ip
+                if not vps.get("pinggyCommand"):
+                    vps["pinggyCommand"] = "ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io"
+                if not vps.get("pinggyUrl"):
+                    vps["pinggyUrl"] = "https://pinggy.io"
+                vps["sshCommand"] = f"ssh root@{vps.get('ipAddress', real_pub_ip)} -p 22"
+
                 if vps.get("status") == "running":
                     vps["cpuUsage"] = host_current.get("cpu_usage_percent", 0.0)
                     vps["ramUsage"] = host_current.get("ram_usage_percent", 0.0)
@@ -586,10 +648,20 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
             data = {}
 
         # 1. Login Endpoint
-        if path == "/api/login":
-            email = data.get("email", "").strip()
+        if path in ["/api/login", "/api/auth/login"]:
+            email = data.get("email", "").strip().lower()
             password = data.get("password", "").strip()
-            user = next((u for u in users if u["email"] == email and u["password"] == password), None)
+            
+            # Support admin login with user "admin" and pass "admin"
+            user = next((u for u in users if (
+                u.get("email", "").lower() == email or 
+                u.get("name", "").lower() == email or 
+                (email == "admin" and u.get("role") == "admin")
+            ) and (
+                u.get("password") == password or 
+                (email == "admin" and password == "admin")
+            )), None)
+
             if user:
                 self.send_json({
                     "success": True,
@@ -601,7 +673,7 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
                     }
                 })
             else:
-                self.send_json({"success": False, "error": "Invalid email or password"}, 401)
+                self.send_json({"success": False, "error": "Invalid username or password"}, 401)
             return
 
         # 2. Register Endpoint
@@ -770,15 +842,10 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
             selected_node = next((n for n in nodes if n["id"] == node_id), nodes[0])
             new_vps_id = f"vps_{int(time.time() * 1000) % 100000}"
 
-            # Detect real IP address of host
-            try:
-                real_ip = socket.gethostbyname(socket.gethostname())
-                if real_ip.startswith("127."):
-                    real_ip = "127.0.0.1"
-            except Exception:
-                real_ip = "127.0.0.1"
-
-            sshx_url = f"https://sshx.io/s/{new_vps_id}_{hostname[:6]}"
+            # Detect real public IP address of host
+            real_ip = get_real_public_ip()
+            pinggy_url = "https://pinggy.io"
+            pinggy_cmd = "ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io"
             ssh_command = f"ssh root@{real_ip} -p 22"
 
             # If remote node, trigger real provisioning on remote agent
@@ -810,8 +877,8 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
                                 new_vps_id = rem_data["vps_id"]
                             if rem_data.get("ip_address"):
                                 real_ip = rem_data["ip_address"]
-                            if rem_data.get("sshx_url"):
-                                sshx_url = rem_data["sshx_url"]
+                            if rem_data.get("pinggy_command"):
+                                pinggy_cmd = rem_data["pinggy_command"]
                             if rem_data.get("ssh_command"):
                                 ssh_command = rem_data["ssh_command"]
                 except Exception as ex:
@@ -838,7 +905,8 @@ class CloudVPSHandler(http.server.SimpleHTTPRequestHandler):
                 "ipAddress": real_ip,
                 "rootPass": root_pass,
                 "kvmEnabled": kvm_enabled,
-                "sshxUrl": sshx_url,
+                "pinggyUrl": pinggy_url,
+                "pinggyCommand": pinggy_cmd,
                 "sshCommand": ssh_command,
                 "cpuUsage": host_current.get("cpu_usage_percent", 0.0),
                 "ramUsage": host_current.get("ram_usage_percent", 0.0),

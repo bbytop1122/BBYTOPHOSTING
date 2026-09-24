@@ -1,0 +1,16 @@
+[
+  {
+    "id": "u_1",
+    "name": "System Administrator",
+    "email": "admin",
+    "role": "admin",
+    "password": "admin"
+  },
+  {
+    "id": "u_2",
+    "name": "Alex Developer",
+    "email": "user@cloudvps.com",
+    "role": "user",
+    "password": "user123"
+  }
+]

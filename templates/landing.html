@@ -138,12 +138,12 @@
                     <input type="text" id="authName" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Alex Developer">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Email Address</label>
-                    <input type="email" id="authEmail" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="user@cloudvps.com">
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Username or Email</label>
+                    <input type="text" id="authEmail" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="admin or username@domain.com">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Password</label>
-                    <input type="password" id="authPassword" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="••••••••">
+                    <input type="password" id="authPassword" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono" placeholder="••••••••">
                 </div>
                 <div id="authError" class="text-xs text-rose-400 hidden"></div>
                 <button type="submit" id="authSubmitBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition shadow-lg shadow-indigo-600/30">Sign In</button>
@@ -152,16 +152,6 @@
             <div class="mt-6 pt-6 border-t border-slate-800 text-center text-xs text-slate-400">
                 <span id="authToggleText">Don't have an account?</span>
                 <button onclick="toggleAuthMode()" id="authToggleBtn" class="text-indigo-400 font-semibold ml-1 hover:underline">Sign up</button>
-            </div>
-            <div class="mt-4 space-y-2">
-                <div class="p-2.5 bg-slate-950/60 border border-slate-800/80 rounded-xl text-xs text-slate-400 flex items-center justify-between">
-                    <span>Demo Admin: <strong class="text-white">admin@cloudvps.com</strong></span>
-                    <button onclick="fillDemo('admin')" class="text-indigo-400 font-semibold hover:underline">Use Admin</button>
-                </div>
-                <div class="p-2.5 bg-slate-950/60 border border-slate-800/80 rounded-xl text-xs text-slate-400 flex items-center justify-between">
-                    <span>Demo User: <strong class="text-white">user@cloudvps.com</strong></span>
-                    <button onclick="fillDemo('user')" class="text-indigo-400 font-semibold hover:underline">Use User</button>
-                </div>
             </div>
         </div>
     </div>
@@ -214,16 +204,6 @@
                 submitBtn.innerText = "Sign In";
                 toggleText.innerText = "Don't have an account?";
                 toggleBtn.innerText = "Sign up";
-            }
-        }
-
-        function fillDemo(type) {
-            if (type === 'admin') {
-                document.getElementById('authEmail').value = "admin@cloudvps.com";
-                document.getElementById('authPassword').value = "admin123";
-            } else if (type === 'user') {
-                document.getElementById('authEmail').value = "user@cloudvps.com";
-                document.getElementById('authPassword').value = "user123";
             }
         }
 

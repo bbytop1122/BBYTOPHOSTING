@@ -91,7 +91,7 @@
         </div>
     </main>
 
-    <!-- Modal: SSH & SSHX Access Details -->
+    <!-- Modal: SSH & Pinggy Access Details -->
     <div id="sshModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-8 shadow-2xl relative">
             <button onclick="closeSshModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white transition">
@@ -102,8 +102,8 @@
                     <i class="fa-solid fa-key"></i>
                 </div>
                 <div>
-                    <h3 class="text-xl font-bold text-white" id="sshModalTitle">SSH & SSHX Terminal</h3>
-                    <p class="text-xs text-slate-400">Direct root access credentials for your instance.</p>
+                    <h3 class="text-xl font-bold text-white" id="sshModalTitle">SSH & Pinggy.io Terminal</h3>
+                    <p class="text-xs text-slate-400">Direct root access credentials and Pinggy reverse tunnel command.</p>
                 </div>
             </div>
 
@@ -119,14 +119,14 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">SSHX Live Browser Stream</label>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Pinggy.io Reverse SSH Command</label>
                     <div class="flex items-center space-x-2">
-                        <input type="text" id="sshxUrlInput" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-emerald-300 font-mono text-xs focus:outline-none">
-                        <a id="sshxOpenLink" href="#" target="_blank" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition flex items-center space-x-1.5">
-                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                            <span>Open</span>
-                        </a>
+                        <input type="text" id="pinggyCmdInput" readonly value="ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-emerald-300 font-mono text-xs focus:outline-none">
+                        <button onclick="copyToClipboard('pinggyCmdInput')" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
                     </div>
+                    <p class="text-[11px] text-slate-400 mt-1">Run this on the machine or in terminal to get a public tunnel via Pinggy.io.</p>
                 </div>
 
                 <div>
@@ -282,9 +282,9 @@
                                 <i class="fa-solid fa-terminal"></i>
                                 <span>Web Console</span>
                             </button>
-                            <button onclick="showSshModal('${v.id}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5" title="SSH Command & SSHX Stream">
-                                <i class="fa-solid fa-key text-xs"></i>
-                                <span>SSH / SSHX</span>
+                            <button onclick="showSshModal('${v.id}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5" title="SSH Command & Pinggy.io Tunnel">
+                                <i class="fa-solid fa-satellite-dish text-emerald-400 text-xs"></i>
+                                <span>SSH / Pinggy</span>
                             </button>
                         </div>
                         <div class="flex items-center space-x-1.5">
@@ -318,8 +318,7 @@
             if (!v) return;
             document.getElementById('sshModalTitle').innerText = `${v.name} (${v.ipAddress})`;
             document.getElementById('sshCommandInput').value = v.sshCommand || `ssh root@${v.ipAddress} -p 22`;
-            document.getElementById('sshxUrlInput').value = v.sshxUrl || `https://sshx.io/s/${v.id}`;
-            document.getElementById('sshxOpenLink').href = v.sshxUrl || `https://sshx.io/s/${v.id}`;
+            document.getElementById('pinggyCmdInput').value = v.pinggyCommand || "ssh -p 443 -R0:localhost:22 -o StrictHostKeyChecking=no a.pinggy.io";
             document.getElementById('sshPassInput').value = v.rootPass || 'root#Nexus99!';
             document.getElementById('sshModal').classList.remove('hidden');
         }
